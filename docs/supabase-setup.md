@@ -35,20 +35,38 @@ Estimated time: **10–15 minutes**.
 
 ## 3. Configure the auth allowlist
 
-The RLS policy only lets the allowlisted email touch any row. You
-tell Postgres which email that is via a single config setting.
+The RLS policy only lets the allowlisted email touch any row. The
+migration in step 2 creates a locked-down `app_settings` table that
+holds this email. You just insert your email into it.
 
-1. Back in **SQL Editor**, run (replacing `you@example.com` with
-   your actual email):
+1. In **SQL Editor** → **New query**.
+2. Paste the following (replacing `you@example.com` with your real
+   email) and click **Run**:
 
    ```sql
-   alter database postgres set app.allowed_email = 'you@example.com';
+   insert into public.app_settings (key, value)
+   values ('allowed_email', 'you@example.com')
+   on conflict (key) do update
+     set value = excluded.value,
+         updated_at = now();
    ```
 
-2. Then run `select current_setting('app.allowed_email', true);` to
-   confirm it returns your email. (Returns `NULL` if you skipped
-   this step — policies will deny everything, which is the safe
-   default.)
+3. Confirm by running:
+
+   ```sql
+   select public.is_app_owner();
+   ```
+
+   This returns `false` because the SQL Editor isn't running as an
+   authenticated user — that's expected. You just want the function
+   to exist and run without error. Actual access checks happen later
+   from the app with your real JWT.
+
+**Why not `alter database postgres set app.allowed_email = '...'`?**
+Supabase's SQL Editor runs as a non-superuser role that can't modify
+database-level config. The `app_settings` table is the workaround,
+and it's nicer anyway — you can change the allowed email by running
+the same `insert ... on conflict` block with a new value.
 
 ## 4. Seed the Harbour View sample data
 
@@ -151,6 +169,5 @@ You didn't run the schema migration (step 2). Run it, then the seed.
 
 **"I want to reset everything and start over."**
 In SQL Editor: `drop schema public cascade; create schema public;`
-Then re-run `0001_mastt_schema.sql` and `harbour_view.sql` from
-scratch. The allowlist setting from step 3 survives schema drops
-since it's stored on the database, not the schema.
+Then re-run `0001_mastt_schema.sql`, step 3 (the `insert into
+app_settings` block), and `harbour_view.sql` from scratch.

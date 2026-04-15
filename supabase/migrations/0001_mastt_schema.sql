@@ -301,13 +301,33 @@ create trigger forecasts_set_updated_at
 -- ---------------------------------------------------------------------------
 -- 7. Row-level security
 --
--- Sprint 1 policy: a single allowlisted email can do everything. We use a
--- GUC ('app.allowed_email') set at the database level via
--- `alter database postgres set app.allowed_email = 'you@example.com';`
--- so the policy stays declarative and doesn't hardcode the email in SQL.
+-- Sprint 1 policy: a single allowlisted email can do everything.
+--
+-- The allowed email is stored in public.app_settings (key/value table)
+-- rather than a database-level GUC, because Supabase's SQL Editor runs
+-- as a non-superuser role that can't execute `alter database ... set`.
+-- The is_app_owner() function is SECURITY DEFINER so it can read
+-- app_settings even though the table has RLS enabled with no policies.
 --
 -- Anyone not signed in, or signed in with a different email, gets nothing.
 -- ---------------------------------------------------------------------------
+
+create table if not exists public.app_settings (
+  key         text primary key,
+  value       text not null,
+  updated_at  timestamptz not null default now()
+);
+
+-- Lock app_settings down. RLS is enabled with zero policies so the
+-- table is unreadable and unwritable via PostgREST for any role. The
+-- SQL Editor (running as the postgres role) bypasses RLS for its own
+-- INSERTs, and the is_app_owner() function below bypasses RLS via
+-- SECURITY DEFINER for its reads.
+alter table public.app_settings enable row level security;
+
+create trigger app_settings_set_updated_at
+  before update on public.app_settings
+  for each row execute function public.set_updated_at();
 
 alter table public.projects            enable row level security;
 alter table public.budget_categories   enable row level security;
@@ -324,14 +344,19 @@ create or replace function public.is_app_owner()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select
     auth.uid() is not null
-    and coalesce(
-      auth.jwt() ->> 'email',
+    and coalesce(auth.jwt() ->> 'email', '') = coalesce(
+      (select value from public.app_settings where key = 'allowed_email' limit 1),
       ''
-    ) = coalesce(current_setting('app.allowed_email', true), '');
+    );
 $$;
+
+grant execute on function public.is_app_owner() to anon, authenticated;
+
 
 do $$
 declare
