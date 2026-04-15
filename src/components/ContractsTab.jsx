@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import { colors, btn, tableStyles, input, badge, badgeToneForStatus } from '../styles.js';
 import { formatMoney, formatPct } from '../utils/format.js';
 import {
+  contractOriginalSum,
   contractRevisedSum,
   contractTotalCertified,
 } from '../utils/calc.js';
 import Modal from './Modal.jsx';
 import { Field, TabToolbar } from './FormShared.jsx';
 
-const STATUSES = ['Active', 'Closed', 'On Hold'];
+const STATUSES = ['Approved', 'Pending', 'Part-Approved'];
 
 const emptyContract = {
-  budgetLineId: '',
-  contractor: '',
+  title: '',
   reference: '',
-  originalSum: 0,
-  retentionPct: 0.05,
-  status: 'Active',
+  vendor: '',
+  status: 'Pending',
+  retention_pct: 0.05,
+  contract_standard: '',
+  // Shim fields for the single auto-created milestone
+  budget_line_id: '',
+  original_value: 0,
 };
 
 export default function ContractsTab({
@@ -32,17 +36,41 @@ export default function ContractsTab({
   const openNew = () =>
     setEditing({
       mode: 'new',
-      data: { ...emptyContract, budgetLineId: budgetLines[0]?.id || '' },
+      data: {
+        ...emptyContract,
+        budget_line_id: budgetLines[0]?.id || '',
+      },
     });
-  const openEdit = (c) => setEditing({ mode: 'edit', data: { ...c } });
+
+  const openEdit = (c) => {
+    // Pull the single milestone fields into the shim form.
+    const firstMilestone = (c.contract_milestones || [])[0];
+    setEditing({
+      mode: 'edit',
+      data: {
+        id: c.id,
+        title: c.title || '',
+        reference: c.reference || '',
+        vendor: c.vendor || '',
+        status: c.status || 'Pending',
+        retention_pct: c.retention_pct ?? 0.05,
+        contract_standard: c.contract_standard || '',
+        budget_line_id: firstMilestone?.budget_line_id || '',
+        original_value: firstMilestone?.original_value ?? 0,
+      },
+    });
+  };
+
   const close = () => setEditing(null);
 
   const save = () => {
     const d = editing.data;
     onSave({
       ...d,
-      originalSum: Number(d.originalSum) || 0,
-      retentionPct: Number(d.retentionPct) || 0,
+      retention_pct: Number(d.retention_pct) || 0,
+      original_value: Number(d.original_value) || 0,
+      // Vendor defaults to title if the user leaves it blank.
+      vendor: d.vendor || d.title,
     });
     close();
   };
@@ -50,9 +78,10 @@ export default function ContractsTab({
   const onField = (f, v) =>
     setEditing((e) => ({ ...e, data: { ...e.data, [f]: v } }));
 
-  const budgetLineName = (id) => {
+  const budgetLineLabel = (id) => {
     const b = budgetLines.find((x) => x.id === id);
-    return b ? `${b.code} — ${b.description}` : '—';
+    if (!b) return '—';
+    return b.code ? `${b.code} — ${b.title}` : b.title;
   };
 
   return (
@@ -76,6 +105,8 @@ export default function ContractsTab({
           </thead>
           <tbody>
             {contracts.map((c) => {
+              const firstMilestone = (c.contract_milestones || [])[0];
+              const original = contractOriginalSum(c);
               const revised = contractRevisedSum(c, variations);
               const certified = contractTotalCertified(c, payments);
               return (
@@ -86,11 +117,13 @@ export default function ContractsTab({
                   onMouseEnter={(e) => (e.currentTarget.style.background = colors.accentRow)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <td style={tableStyles.td}>{c.reference}</td>
-                  <td style={tableStyles.td}>{c.contractor}</td>
-                  <td style={tableStyles.td}>{budgetLineName(c.budgetLineId)}</td>
+                  <td style={tableStyles.td}>{c.reference || '—'}</td>
+                  <td style={tableStyles.td}>{c.title}</td>
+                  <td style={tableStyles.td}>
+                    {budgetLineLabel(firstMilestone?.budget_line_id)}
+                  </td>
                   <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>
-                    {formatMoney(c.originalSum)}
+                    {formatMoney(original)}
                   </td>
                   <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>
                     {formatMoney(revised)}
@@ -99,7 +132,7 @@ export default function ContractsTab({
                     {formatMoney(certified)}
                   </td>
                   <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>
-                    {formatPct(c.retentionPct)}
+                    {formatPct(c.retention_pct)}
                   </td>
                   <td style={tableStyles.td}>
                     <span style={badge(badgeToneForStatus(c.status))}>{c.status}</span>
@@ -112,7 +145,7 @@ export default function ContractsTab({
                         e.stopPropagation();
                         if (
                           window.confirm(
-                            `Delete contract "${c.contractor}"? Linked variations and payments will also be removed.`
+                            `Delete contract "${c.title}"? Linked variations and payments will also be removed.`
                           )
                         ) {
                           onDelete(c.id);
@@ -141,27 +174,28 @@ export default function ContractsTab({
                 style={input}
                 value={editing.data.reference}
                 onChange={(e) => onField('reference', e.target.value)}
-                required
+                placeholder="e.g. CT-001"
               />
             </Field>
             <Field label="Contractor / Consultant">
               <input
                 style={input}
-                value={editing.data.contractor}
-                onChange={(e) => onField('contractor', e.target.value)}
+                value={editing.data.title}
+                onChange={(e) => onField('title', e.target.value)}
                 required
               />
             </Field>
             <Field label="Budget Line">
               <select
                 style={input}
-                value={editing.data.budgetLineId}
-                onChange={(e) => onField('budgetLineId', e.target.value)}
+                value={editing.data.budget_line_id}
+                onChange={(e) => onField('budget_line_id', e.target.value)}
                 required
               >
                 {budgetLines.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.code} — {b.description}
+                    {b.code ? `${b.code} — ` : ''}
+                    {b.title}
                   </option>
                 ))}
               </select>
@@ -173,8 +207,8 @@ export default function ContractsTab({
                   type="number"
                   min="0"
                   step="1000"
-                  value={editing.data.originalSum}
-                  onChange={(e) => onField('originalSum', e.target.value)}
+                  value={editing.data.original_value}
+                  onChange={(e) => onField('original_value', e.target.value)}
                   required
                 />
               </Field>
@@ -185,8 +219,8 @@ export default function ContractsTab({
                   min="0"
                   max="1"
                   step="0.005"
-                  value={editing.data.retentionPct}
-                  onChange={(e) => onField('retentionPct', e.target.value)}
+                  value={editing.data.retention_pct}
+                  onChange={(e) => onField('retention_pct', e.target.value)}
                   required
                 />
               </Field>

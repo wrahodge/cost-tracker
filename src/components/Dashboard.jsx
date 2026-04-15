@@ -27,13 +27,17 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
 
   const budgetChartData = budgetLines.map((b) => {
     const committed = budgetCommitted(b, contracts);
+    const budgetAmount =
+      (Number(b.original_amount) || 0) +
+      (Number(b.adjustments_in) || 0) -
+      (Number(b.adjustments_out) || 0);
     return {
-      label: b.description,
+      label: b.title,
       values: [
-        { key: 'Budget', value: b.originalBudget, color: colors.headerBg },
+        { key: 'Budget', value: budgetAmount, color: colors.headerBg },
         { key: 'Committed', value: committed, color: colors.gold },
       ],
-      rightLabel: `${formatMoney(committed)} / ${formatMoney(b.originalBudget)}`,
+      rightLabel: `${formatMoney(committed)} / ${formatMoney(budgetAmount)}`,
     };
   });
 
@@ -41,7 +45,7 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
     const revised = contractRevisedSum(c, variations);
     const certified = contractTotalCertified(c, payments);
     return {
-      label: c.contractor,
+      label: c.title,
       values: [
         { key: 'Certified', value: certified, color: colors.gold },
         { key: 'Revised Sum', value: revised, color: colors.headerBg },

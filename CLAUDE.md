@@ -4,103 +4,124 @@ Internal construction cost management platform for client-side project
 managers tracking payments to head contractors and consultants on
 apartment building projects in Australia.
 
-Built with Vite + React 18, JavaScript, inline styles, DM Sans. No
-backend yet — data lives in `useState` in `src/App.jsx`, seeded from
-`src/data/sampleData.js`.
+**Stack:** Vite + React 18, JavaScript, inline styles, DM Sans,
+`@supabase/supabase-js`, `@tanstack/react-query`.
+
+**Backend:** Supabase (Postgres + Auth). Schema is a faithful
+port of the Mastt cost-tracking data model — see
+`docs/mastt-data-model.md`.
+
+**Production:** <https://esscostracker.pages.dev/> — hosted on
+Cloudflare Pages, auto-deploys on push to the production branch.
+
+**Data persistence:** All data lives in Supabase. Sign in with a
+magic link to access the app. Single-user RLS gate — only the email
+set via `alter database postgres set app.allowed_email = '…'` can
+read/write any row.
 
 ## Running
 
 ```
 npm install
-npm run dev       # http://localhost:5173
+cp .env.example .env.local       # then fill in the three VITE_ vars
+npm run dev                      # http://localhost:5173
 npm run build
 ```
 
+See `docs/supabase-setup.md` for the one-time Supabase project
+setup (create project, run migration, seed data, set env vars on
+Cloudflare Pages).
+
 ## Data model
 
-All entities live in memory. Ids are plain strings
-(`crypto.randomUUID()` for new rows).
+Source of truth: `docs/mastt-data-model.md`.
 
-### BudgetLine
-Cost code with an original budget amount.
-| Field            | Type   | Notes                                           |
-| ---------------- | ------ | ----------------------------------------------- |
-| `id`             | string | PK                                              |
-| `code`           | string | e.g. `03-100`                                   |
-| `description`    | string | e.g. `Concrete Structure`                       |
-| `originalBudget` | number | AUD                                             |
+The Mastt model uses 5 core entities in a tree hierarchy. Our
+relational implementation (`supabase/migrations/0001_mastt_schema.sql`)
+uses proper foreign keys instead of Mastt's title-based matching:
 
-### Contract
-Belongs to one `BudgetLine`. One per head-contractor or consultant
-engagement.
-| Field          | Type   | Notes                                          |
-| -------------- | ------ | ---------------------------------------------- |
-| `id`           | string | PK                                             |
-| `budgetLineId` | string | FK → BudgetLine                                |
-| `contractor`   | string | Company name                                   |
-| `reference`    | string | e.g. `CT-001`                                  |
-| `originalSum`  | number | AUD, the signed contract sum                   |
-| `retentionPct` | number | 0 – 1 (0.05 = 5%)                              |
-| `status`       | enum   | `Active` \| `Closed` \| `On Hold`              |
+```
+projects                    (CP)
+  └─ budget_categories      (BGT)          -- e.g. "Consultant Fees"
+       └─ budget_groups     (SBGT D3)      -- e.g. "Structure"
+            └─ budget_lines (SBGT D4)      -- e.g. "Concrete Structure"
 
-### Variation
-Belongs to one `Contract`. Only `Approved` variations flow into the
-revised contract sum.
-| Field         | Type   | Notes                                           |
-| ------------- | ------ | ----------------------------------------------- |
-| `id`          | string | PK                                              |
-| `contractId`  | string | FK → Contract                                   |
-| `reference`   | string | e.g. `VAR-001`                                  |
-| `description` | string |                                                 |
-| `amount`      | number | AUD, may be negative                            |
-| `status`      | enum   | `Pending` \| `Approved` \| `Rejected`           |
-| `date`        | string | ISO `YYYY-MM-DD`                                |
+contracts                   (CTR)          -- header
+  ├─ contract_sections      (SEC)          -- separable portions (nullable)
+  └─ contract_milestones    (CTRM)         -- linked to budget_line_id
+                                           --   ← this is the backbone FK
 
-### Payment
-Payment certificate belonging to one `Contract`. Retention and net
-payable are derived from `contract.retentionPct` — never stored.
-| Field             | Type   | Notes                                       |
-| ----------------- | ------ | ------------------------------------------- |
-| `id`              | string | PK                                          |
-| `contractId`      | string | FK → Contract                               |
-| `reference`       | string | e.g. `PC-01`                                |
-| `claimAmount`     | number | AUD the contractor claimed                  |
-| `certifiedAmount` | number | AUD certified by the PM / Superintendent    |
-| `date`            | string | ISO `YYYY-MM-DD`                            |
-| `status`          | enum   | `Draft` \| `Certified` \| `Paid`            |
+variations                  (VAR)          -- linked to contract + budget_line
+payment_claims              (PC)           -- linked to contract
+forecasts                   (FOR)          -- linked to budget_line
+```
+
+### Status enumerations
+
+| Entity       | Statuses                                                |
+| ------------ | ------------------------------------------------------- |
+| Contract     | `Approved`, `Pending`, `Part-Approved`                  |
+| Variation    | `Forecast`, `Pending`, `In Principle`, `Approved`       |
+| Variation rejection | `date_rejected` timestamp (Mastt has no `Rejected` status) |
+| Payment      | `Draft`, `Certified`, `Approved`, `Paid`                |
+
+Mastt's vocabulary: `Forecast` = anticipated but not yet formally
+raised; `In Principle` = agreed in principle, final value being
+negotiated. These feed different reporting modes in Sprint 3.
 
 ## Calculations
 
 All pure, in `src/utils/calc.js`. Every roll-up is derived at render
 time so edits to any entity cascade instantly through the UI.
 
+### Budget line
+- `budgetLineEffectiveBudget(line)` — `original_amount + adjustments_in − adjustments_out`
+- `milestonesForBudgetLine(line, contracts)` — flatMap across contracts
+- `budgetCommitted(line, contracts)` — sum of milestones' `original_value`
+- `budgetApprovedVars(line, variations)` — sum of approved variations (excluding rejected)
+- `budgetUncommitted(line, contracts)` — effective budget − committed. Rendered red when negative.
+
 ### Contract
-- `contractApprovedVars(contract, variations)` — sum of
-  `status === 'Approved'` variation amounts for that contract.
-- `contractRevisedSum(contract, variations)` —
-  `originalSum + contractApprovedVars`.
-- `contractTotalCertified(contract, payments)` — sum of
-  `certifiedAmount` across the contract's payments.
-- `contractTotalPaid(contract, payments)` — sum of certified amounts
-  where the certificate `status === 'Paid'`.
+- `contractOriginalSum(contract)` — sum of milestones' `original_value`
+- `contractApprovedVars(contract, variations)` — approved + not rejected
+- `contractRevisedSum(contract, variations)` — original sum + approved variations
+- `contractTotalCertified(contract, payments)` — sum of `certified_amount`
+- `contractTotalPaid(contract, payments)` — same but only `status === 'Paid'`
 
 ### Payment
-- `paymentRetention(payment, contract)` —
-  `certifiedAmount × contract.retentionPct`.
-- `paymentNetPayable(payment, contract)` —
-  `certifiedAmount − paymentRetention(payment, contract)`.
-
-### Budget line
-- `budgetCommitted(line, contracts)` — sum of `originalSum` for contracts
-  linked to that budget line.
-- `budgetApprovedVars(line, contracts, variations)` — sum of approved
-  variations across those contracts.
-- `budgetUncommitted(line, contracts)` —
-  `originalBudget − budgetCommitted`. Rendered red when negative.
+- `paymentRetention(payment, contract)` — stored `retention_amount` if > 0, else `certified_amount × contract.retention_pct`
+- `paymentNetPayable(payment, contract)` — `certified_amount − retention`
 
 ### Project totals (dashboard)
-`projectTotals` returns `{ totalBudget, committed, approvedVars,
-certified, paid, uncommitted }`.
+`projectTotals` returns `{ totalBudget, committed, approvedVars, certified, paid, uncommitted }`.
+
+## Sprint status
+
+### Sprint 1 (current) — Mastt schema + Supabase
+- **Done:** Full Mastt-faithful schema in Supabase, magic-link auth,
+  data hooks, ported UI, seeded Harbour View sample.
+- **Shim:** Each contract auto-creates a single "Main" section + "Main"
+  milestone. Budget UI is still flat (shows group as a subtitle, no
+  tree expansion yet). Variations support the new status vocabulary
+  but no category/VPR/VO fields in the UI.
+
+### Sprint 2 — Richness
+- Budget tree UI (expandable Category → Group → Line)
+- Contract sections + multi-milestone editing UI
+- Forecasts tab + FFC/variance dashboard cards
+
+### Sprint 3 — Reporting
+- 8-level Overall view (SQL view + tree renderer)
+- Roll-ups from budget_line upward through groups and categories
+- Printable monthly cost report view
+
+### Sprint 4 — Interop
+- CSV import compatible with Mastt's format (title-based → FK resolution)
+- CSV export
+
+### Later
+- Multi-project support
+- Client read-only shareable links
 
 ## UI conventions
 
@@ -117,29 +138,28 @@ certified, paid, uncommitted }`.
 - Numeric columns use `text-align: right` and tabular numerals.
 - Currency via `Intl.NumberFormat('en-AU', { currency: 'AUD' })`.
 
+## State management
+
+- Remote state: `@tanstack/react-query` (`src/lib/queryClient.js`,
+  query keys in `qk`).
+- Hooks in `src/hooks/` wrap Supabase queries and mutations. Each
+  mutation invalidates its own query key plus any dependent keys
+  (e.g. saving a variation invalidates both variations and contracts
+  so revised sums recalculate).
+- Auth: `src/auth/AuthGate.jsx` blocks the app until signed in via
+  magic link. `src/auth/useAuth.js` is the thin Supabase wrapper.
+
 ## Delete cascades
 
-- Deleting a **BudgetLine** cascades to its contracts, their variations
-  and their payments.
-- Deleting a **Contract** cascades to its variations and payments.
-- Deleting a **Variation** or **Payment** is a straight removal.
+All cascades happen in Postgres via `ON DELETE CASCADE` FKs:
 
-These cascades live in `App.jsx` alongside the state setters.
-
-## Sample project
-
-`src/data/sampleData.js` seeds a Sydney apartment project, **Harbour
-View Apartments**, with:
-
-- 11 budget lines totalling **$17,000,000**
-  (Preliminaries, Demolition, Excavation & Piling, Concrete Structure,
-  Structural Steel, Facade & Cladding, Windows & Doors, Roofing,
-  Mechanical Services, Electrical Services, Hydraulic Services)
-- 4 contracts — 2 trade (Apex Concrete, Pacific Facade) and
-  2 consultant (Meridian QS, Northline Structural)
-- 4 variations across Apex and Pacific (mix of Approved / Pending /
-  Rejected so cascades into revised sums are visible immediately)
-- 5 payment certificates (mix of Draft / Certified / Paid)
+- Deleting a **project** drops categories, groups, lines, contracts,
+  sections, milestones, variations, payments, forecasts.
+- Deleting a **budget_line** drops forecasts linked to it;
+  contract_milestones have `on delete restrict` so you can't orphan
+  a committed milestone — delete the contract first.
+- Deleting a **contract** drops sections, milestones, variations, payments.
+- Deleting a **variation** or **payment** is a straight removal.
 
 ## Australian terminology (glossary)
 
@@ -154,22 +174,10 @@ View Apartments**, with:
   construction contract with the client.
 - **Client-side PM** — the project manager engaged by the client /
   developer (not the builder), which is who this tool is built for.
-
-## Planned features
-
-Not implemented yet — listed here so future sessions know the direction.
-
-- **Supabase backend** — swap the `useState` seed for a Supabase project
-  (tables: `budget_lines`, `contracts`, `variations`, `payments`,
-  `projects`). Row-level security keyed by `project_id` + user.
-- **Multi-project** — a projects table and a project picker in the
-  header; every other query scopes to the active project.
-- **PDF export** — one-click export of individual payment certificates
-  (client / builder / superintendent copies) and monthly cost reports
-  (budget vs committed vs certified vs forecast).
-- **Cash flow forecasting** — per-contract S-curve or manual payment
-  schedule, roll up to a monthly projected cash-out for the project and
-  plot actual vs forecast.
-- **Audit log** — append-only history of edits to contract sums,
-  variations and certified amounts, since those are the numbers that
-  matter most in disputes.
+- **FFC (Forecast Final Cost)** — expected total cost including
+  forecasts: `current_contract + uncommitted + forecasts`. Mastt's
+  most important reporting number.
+- **Variance** — `budget − FFC`. Negative means over budget.
+- **Separable portion** — a standalone section of a head contract
+  that can be handed over independently (AS4902 concept). Modelled
+  as `contract_sections`.

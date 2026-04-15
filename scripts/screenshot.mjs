@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
-const tabs = ['Dashboard', 'Budget', 'Contracts', 'Variations', 'Payments'];
-const url = 'http://localhost:5173';
+const url = process.env.APP_URL || 'http://localhost:5173';
+const out = process.env.OUT_DIR || 'screenshots';
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
@@ -10,14 +10,15 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
-await page.goto(url, { waitUntil: 'networkidle' });
+await page.goto(url, { waitUntil: 'networkidle' }).catch(() => {
+  // With placeholder Supabase creds the session fetch will fail; we
+  // still want to capture whatever the page renders.
+});
 
-for (const label of tabs) {
-  await page.getByRole('button', { name: label, exact: true }).click();
-  await page.waitForTimeout(350);
-  const out = `screenshots/${label}.png`;
-  await page.screenshot({ path: out, fullPage: true });
-  console.log('wrote', out);
-}
+// Give React a beat to render the AuthGate after session resolution.
+await page.waitForTimeout(800);
+
+await page.screenshot({ path: `${out}/auth-gate.png`, fullPage: true });
+console.log('wrote', `${out}/auth-gate.png`);
 
 await browser.close();
