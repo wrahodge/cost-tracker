@@ -29,6 +29,14 @@ export function useSaveVariation(projectId) {
         reference: payload.reference ?? null,
         title: payload.title,
         description: payload.description ?? null,
+        contract_variation_no:
+          payload.contract_variation_no == null || payload.contract_variation_no === ''
+            ? null
+            : Number(payload.contract_variation_no),
+        variation_no: payload.variation_no ?? null,
+        vo_no: payload.vo_no ?? null,
+        vpr_no: payload.vpr_no ?? null,
+        clause: payload.clause ?? null,
         status: payload.status || 'Pending',
         category: payload.category ?? null,
         date_received: payload.date_received || null,
@@ -39,6 +47,17 @@ export function useSaveVariation(projectId) {
             ? null
             : Number(payload.requested_amount),
         variation_amount: Number(payload.variation_amount) || 0,
+        tax_percent: payload.tax_percent != null ? Number(payload.tax_percent) : 10,
+        approved_by: payload.approved_by ?? null,
+        days_claimed:
+          payload.days_claimed == null || payload.days_claimed === ''
+            ? null
+            : Number(payload.days_claimed),
+        days_approved:
+          payload.days_approved == null || payload.days_approved === ''
+            ? null
+            : Number(payload.days_approved),
+        notes: payload.notes ?? null,
       };
 
       if (payload.id) {

@@ -145,7 +145,9 @@ export default function App() {
             )}
             {tab === 'Variations' && (
               <VariationsTab
+                project={project}
                 contracts={contracts}
+                budgetLines={budgetLines}
                 variations={variations}
                 onSave={(v) => saveVariation.mutate(v)}
                 onDelete={(id) => deleteVariation.mutate(id)}
