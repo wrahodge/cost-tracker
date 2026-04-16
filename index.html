@@ -24,6 +24,14 @@
       button { font-family: inherit; }
       input, select, textarea { font-family: inherit; }
       table { border-collapse: collapse; }
+      @media print {
+        header, nav, footer, button { display: none !important; }
+        body, #root { background: #fff !important; }
+        main { padding: 0 !important; }
+        table { font-size: 11px !important; }
+        td, th { padding: 6px 8px !important; }
+        @page { size: landscape; margin: 12mm; }
+      }
     </style>
   </head>
   <body>

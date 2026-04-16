@@ -7,6 +7,8 @@ import ContractsTab from './components/ContractsTab.jsx';
 import VariationsTab from './components/VariationsTab.jsx';
 import PaymentsTab from './components/PaymentsTab.jsx';
 import ForecastsTab from './components/ForecastsTab.jsx';
+import OverallTab from './components/OverallTab.jsx';
+import CostReportTab from './components/CostReportTab.jsx';
 import { colors, page } from './styles.js';
 import { useActiveProject } from './hooks/useProjects.js';
 import {
@@ -163,6 +165,28 @@ export default function App() {
                 forecasts={forecasts}
                 onSave={(f) => saveForecast.mutate(f)}
                 onDelete={(id) => deleteForecast.mutate(id)}
+              />
+            )}
+            {tab === 'Overall' && (
+              <OverallTab
+                project={project}
+                budgetCategories={budgetCategories}
+                budgetGroups={budgetGroups}
+                budgetLines={budgetLines}
+                contracts={contracts}
+                variations={variations}
+                payments={payments}
+                forecasts={forecasts}
+              />
+            )}
+            {tab === 'Cost Report' && (
+              <CostReportTab
+                project={project}
+                budgetLines={budgetLines}
+                contracts={contracts}
+                variations={variations}
+                payments={payments}
+                forecasts={forecasts}
               />
             )}
           </>
