@@ -159,8 +159,10 @@ export function badgeToneForStatus(status) {
       return 'negative';
     case 'Pending':
     case 'Draft':
+    case 'In Principle':
       return 'pending';
     case 'Certified':
+    case 'Forecast':
       return 'info';
     default:
       return 'neutral';

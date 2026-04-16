@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { colors, btn } from '../styles.js';
+import { colors } from '../styles.js';
 
-// Reusable three-dot (⋯) dropdown menu. Click the trigger to open,
-// click outside or press Escape to close.
 export default function DropdownMenu({ items }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -38,10 +36,11 @@ export default function DropdownMenu({ items }) {
           padding: '4px 8px',
           borderRadius: 4,
           lineHeight: 1,
+          letterSpacing: 2,
         }}
         title="Actions"
       >
-        ⋯
+        &middot;&middot;&middot;
       </button>
       {open && (
         <div
@@ -55,40 +54,48 @@ export default function DropdownMenu({ items }) {
             borderRadius: 8,
             boxShadow: '0 8px 24px rgba(10, 12, 18, 0.12)',
             zIndex: 20,
-            minWidth: 180,
+            minWidth: 220,
             overflow: 'hidden',
+            padding: '4px 0',
           }}
         >
-          {items.map((item, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                item.onClick();
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                width: '100%',
-                padding: '11px 16px',
-                border: 'none',
-                background: 'transparent',
-                fontSize: 14,
-                color: item.danger ? colors.negative : colors.text,
-                cursor: 'pointer',
-                textAlign: 'left',
-                borderTop: i > 0 ? `1px solid ${colors.border}` : 'none',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = colors.accentRow)}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              {item.icon && <span style={{ fontSize: 16 }}>{item.icon}</span>}
-              {item.label}
-            </button>
-          ))}
+          {items.map((item, i) => {
+            const itemColor = item.danger
+              ? '#d4a0a0'
+              : item.accent
+                ? '#2563eb'
+                : colors.text;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  item.onClick();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  width: '100%',
+                  padding: '10px 18px',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 14,
+                  fontWeight: item.accent ? 500 : 400,
+                  color: itemColor,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = colors.accentRow)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                {item.icon && <span style={{ fontSize: 16, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>}
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

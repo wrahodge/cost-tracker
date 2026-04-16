@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { colors, btn, tableStyles, input, badge, badgeToneForStatus } from '../styles.js';
 import { formatMoney } from '../utils/format.js';
 import Modal from './Modal.jsx';
@@ -18,7 +18,7 @@ function emptyVariation(defaults = {}) {
     description: '',
     status: 'Forecast',
     category: '',
-    contract_variation_no: '',
+    contract_variation_no: 1,
     variation_no: '',
     vo_no: '',
     vpr_no: '',
@@ -36,10 +36,6 @@ function emptyVariation(defaults = {}) {
     ...defaults,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export default function VariationsTab({ project, contracts, budgetLines, variations, onSave, onDelete }) {
   const [editing, setEditing] = useState(null);
@@ -59,7 +55,6 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
   const collapseAll = () => setExpanded({});
   const anyExpanded = Object.values(expanded).some(Boolean);
 
-  // --- CRUD ---
   const openNew = () => {
     const firstContract = contracts[0];
     const firstMilestone = firstContract?.contract_milestones?.[0];
@@ -117,23 +112,6 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
   const onField = (f, v) =>
     setEditing((e) => ({ ...e, data: { ...e.data, [f]: v } }));
 
-  const contractLabel = (id) => {
-    const c = contracts.find((x) => x.id === id);
-    return c ? c.title : '—';
-  };
-
-  const vendorLabel = (id) => {
-    const c = contracts.find((x) => x.id === id);
-    return c?.vendor || c?.title || '—';
-  };
-
-  const budgetLineLabel = (id) => {
-    if (!budgetLines) return '—';
-    const b = budgetLines.find((x) => x.id === id);
-    return b ? (b.code ? `${b.code} — ${b.title}` : b.title) : '—';
-  };
-
-  // --- CSV export ---
   const exportCSV = () => {
     const header = ['Title', 'Contract', 'Contract Var No.', 'Vendor', 'Variation No.', 'VO No.', 'Status', 'Category', 'Variation Amount'];
     const rows = variations.map((v) => {
@@ -160,9 +138,15 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
     URL.revokeObjectURL(url);
   };
 
+  const budgetLineLabel = (id) => {
+    if (!budgetLines) return '—';
+    const b = budgetLines.find((x) => x.id === id);
+    return b ? (b.code ? `${b.code} — ${b.title}` : b.title) : '—';
+  };
+
   return (
     <div>
-      {/* Toolbar */}
+      {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10 }}>
           <button style={{ ...btn.primary, background: '#2563eb' }} onClick={openNew}>
@@ -172,170 +156,182 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
             ↓ Export
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button
-            style={{ ...btn.secondary, fontSize: 13, padding: '7px 12px' }}
+            style={{ ...btn.secondary, fontSize: 13, padding: '7px 14px' }}
             onClick={anyExpanded ? collapseAll : expandAll}
           >
-            {anyExpanded ? '↕ Collapse All' : '↕ Expand All'}
+            ↕ {anyExpanded ? 'Collapse All' : 'Expand All'}
           </button>
         </div>
       </div>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <div style={tableStyles.wrapper}>
         <table style={tableStyles.table}>
           <thead>
             <tr>
-              <th style={{ ...tableStyles.th, width: 36 }}></th>
-              <th style={tableStyles.th}>Title</th>
+              {/* Chevron col */}
+              <th style={{ ...tableStyles.th, width: 32, padding: '14px 8px' }}></th>
+              {/* Title (includes V badge + ... menu + title text) */}
+              <th style={{ ...tableStyles.th, minWidth: 240 }}>Title</th>
               <th style={tableStyles.th}>Contract</th>
-              <th style={{ ...tableStyles.th, ...tableStyles.numeric, width: 70 }}>Contr. Var No.</th>
+              <th style={{ ...tableStyles.th, width: 60 }}>Contr...</th>
               <th style={tableStyles.th}>Vendor</th>
-              <th style={{ ...tableStyles.th, width: 90 }}>Variation No.</th>
+              <th style={{ ...tableStyles.th, width: 100 }}>Variation No.</th>
               <th style={{ ...tableStyles.th, width: 70 }}>VO No.</th>
-              <th style={tableStyles.th}>Status</th>
+              <th style={{ ...tableStyles.th, width: 100 }}>Status</th>
               <th style={tableStyles.th}>Category</th>
-              <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Variation Amount</th>
-              <th style={{ ...tableStyles.th, width: 44 }}></th>
+              <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Variation Am...</th>
+              {/* Attachment count col */}
+              <th style={{ ...tableStyles.th, width: 40, textAlign: 'center' }}>
+                <span style={{ fontSize: 13 }}>🔗</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {variations.map((v) => {
               const rejected = !!v.date_rejected;
               const isExpanded = expanded[v.id];
+              const contract = contractFor(v.contract_id);
               return (
                 <React.Fragment key={v.id}>
                   <tr
                     onMouseEnter={(e) => (e.currentTarget.style.background = colors.accentRow)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
+                    {/* Chevron */}
                     <td
-                      style={{ ...tableStyles.td, width: 36, cursor: 'pointer' }}
+                      style={{ ...tableStyles.td, width: 32, padding: '14px 8px', cursor: 'pointer' }}
                       onClick={() => toggleExpand(v.id)}
                     >
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          fontSize: 10,
-                          color: colors.textMuted,
-                          transition: 'transform 0.15s',
-                          transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                        }}
-                      >
-                        ▶
-                      </span>
+                      <span style={{
+                        display: 'inline-block',
+                        fontSize: 9,
+                        color: colors.textMuted,
+                        transition: 'transform 0.15s',
+                        transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      }}>▶</span>
                     </td>
-                    <td style={{ ...tableStyles.td, cursor: 'pointer' }} onClick={() => openEdit(v)}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+                    {/* Title — V badge, ... menu, title text (all inline) */}
+                    <td style={{ ...tableStyles.td, minWidth: 240 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          background: '#7c3aed',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}>V</span>
+                        <DropdownMenu
+                          items={[
+                            { icon: '✏️', label: 'Edit Variation', accent: true, onClick: () => openEdit(v) },
+                            { icon: '⬇', label: 'Variation Approval PDF', onClick: () => {} },
+                            { icon: '⬇', label: 'Variation Order PDF', onClick: () => setReportVariation(v) },
+                            { icon: '⬇', label: 'Variation Recommendation PDF', onClick: () => {} },
+                            {
+                              icon: '🗑️',
+                              label: 'Delete Variation',
+                              danger: true,
+                              onClick: () => {
+                                if (window.confirm(`Delete variation "${v.reference || v.title}"?`))
+                                  onDelete(v.id);
+                              },
+                            },
+                            { icon: 'ℹ️', label: 'Audit Log', onClick: () => {} },
+                          ]}
+                        />
                         <span
                           style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: '50%',
-                            background: '#7c3aed',
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            flexShrink: 0,
+                            cursor: 'pointer',
+                            textDecoration: rejected ? 'line-through' : 'none',
+                            color: rejected ? colors.textMuted : colors.text,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                           }}
+                          onClick={() => openEdit(v)}
                         >
-                          V
-                        </span>
-                        <span style={{
-                          textDecoration: rejected ? 'line-through' : 'none',
-                          color: rejected ? colors.textMuted : colors.text,
-                        }}>
                           {v.title}
                         </span>
                       </div>
                     </td>
-                    <td style={{ ...tableStyles.td, fontSize: 13 }}>{contractLabel(v.contract_id)}</td>
-                    <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>{v.contract_variation_no ?? '—'}</td>
-                    <td style={{ ...tableStyles.td, fontSize: 13, color: colors.textMuted }}>{vendorLabel(v.contract_id)}</td>
-                    <td style={tableStyles.td}>{v.variation_no || '—'}</td>
-                    <td style={tableStyles.td}>{v.vo_no || '—'}</td>
-                    <td style={tableStyles.td}>
+
+                    {/* Contract */}
+                    <td style={{ ...tableStyles.td, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 }}>
+                      {contract?.title || '—'}
+                    </td>
+
+                    {/* Contract Variation No. */}
+                    <td style={{ ...tableStyles.td, textAlign: 'center', width: 60 }}>
+                      {v.contract_variation_no ?? ''}
+                    </td>
+
+                    {/* Vendor */}
+                    <td style={{ ...tableStyles.td, fontSize: 13, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                      {contract?.vendor || contract?.title || '—'}
+                    </td>
+
+                    {/* Variation No. */}
+                    <td style={{ ...tableStyles.td, width: 100 }}>{v.variation_no || ''}</td>
+
+                    {/* VO No. */}
+                    <td style={{ ...tableStyles.td, width: 70 }}>{v.vo_no || ''}</td>
+
+                    {/* Status */}
+                    <td style={{ ...tableStyles.td, width: 100 }}>
                       {rejected ? (
                         <span style={badge('negative')}>Rejected</span>
                       ) : (
                         <span style={badge(badgeToneForStatus(v.status))}>{v.status}</span>
                       )}
                     </td>
-                    <td style={{ ...tableStyles.td, fontSize: 13, color: colors.textMuted }}>{v.category || '—'}</td>
+
+                    {/* Category */}
+                    <td style={{ ...tableStyles.td, fontSize: 13, color: colors.textMuted }}>
+                      {v.category || ''}
+                    </td>
+
+                    {/* Variation Amount */}
                     <td style={{ ...tableStyles.td, ...tableStyles.numeric, fontWeight: 600 }}>
                       {formatMoney(v.variation_amount)}
                     </td>
-                    <td style={{ ...tableStyles.td, width: 44, textAlign: 'right' }}>
-                      <DropdownMenu
-                        items={[
-                          { icon: '✎', label: 'Edit Variation', onClick: () => openEdit(v) },
-                          { icon: '🖨', label: 'Variation Order PDF', onClick: () => setReportVariation(v) },
-                          {
-                            icon: '🗑',
-                            label: 'Delete Variation',
-                            danger: true,
-                            onClick: () => {
-                              if (window.confirm(`Delete variation "${v.reference || v.title}"?`))
-                                onDelete(v.id);
-                            },
-                          },
-                        ]}
-                      />
+
+                    {/* Attachment count */}
+                    <td style={{ ...tableStyles.td, width: 40, textAlign: 'center', fontSize: 12, color: colors.textMuted }}>
+                      0
                     </td>
                   </tr>
 
-                  {/* Expanded detail */}
+                  {/* Expanded detail row */}
                   {isExpanded && (
                     <tr style={{ background: '#f9fafb' }}>
-                      <td style={tableStyles.td} />
-                      <td colSpan={10} style={{ ...tableStyles.td, paddingLeft: 56 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12 }}>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Reference</div>
-                            {v.reference || '—'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Date Received</div>
-                            {v.date_received || '—'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Date Approved</div>
-                            {v.date_approved || '—'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Requested Amount</div>
-                            {v.requested_amount != null ? formatMoney(v.requested_amount) : '—'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Budget</div>
-                            {budgetLineLabel(v.budget_line_id)}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Tax %</div>
-                            {v.tax_percent != null ? `${v.tax_percent}%` : '10%'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Days Claimed</div>
-                            {v.days_claimed ?? '—'}
-                          </div>
-                          <div>
-                            <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Days Approved</div>
-                            {v.days_approved ?? '—'}
-                          </div>
+                      <td style={{ ...tableStyles.td, padding: '14px 8px' }} />
+                      <td colSpan={10} style={{ ...tableStyles.td, paddingLeft: 48 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, fontSize: 12, padding: '4px 0' }}>
+                          <DetailCell label="Reference" value={v.reference || '—'} />
+                          <DetailCell label="Date Received" value={v.date_received || '—'} />
+                          <DetailCell label="Date Approved" value={v.date_approved || '—'} />
+                          <DetailCell label="Requested Amount" value={v.requested_amount != null ? formatMoney(v.requested_amount) : '—'} />
+                          <DetailCell label="Budget" value={budgetLineLabel(v.budget_line_id)} />
+                          <DetailCell label="Tax %" value={v.tax_percent != null ? `${v.tax_percent}%` : '10%'} />
+                          <DetailCell label="Days Claimed" value={v.days_claimed ?? '—'} />
+                          <DetailCell label="Days Approved" value={v.days_approved ?? '—'} />
                           {v.description && (
                             <div style={{ gridColumn: '1 / -1' }}>
-                              <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Description</div>
-                              {v.description}
+                              <DetailCell label="Description" value={v.description} />
                             </div>
                           )}
                           {v.notes && (
                             <div style={{ gridColumn: '1 / -1' }}>
-                              <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2 }}>Notes</div>
-                              {v.notes}
+                              <DetailCell label="Notes" value={v.notes} />
                             </div>
                           )}
                         </div>
@@ -354,7 +350,7 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
         Total Rows: {variations.length}
       </div>
 
-      {/* Modal */}
+      {/* ── Modal ── */}
       {editing && (
         <Modal
           title={editing.mode === 'new' ? 'Add Variation' : 'Edit Variation'}
@@ -372,7 +368,7 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
         </Modal>
       )}
 
-      {/* Variation Order Report overlay */}
+      {/* ── Variation Order Report overlay ── */}
       {reportVariation && (
         <VariationOrderReport
           variation={reportVariation}
@@ -386,14 +382,22 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
   );
 }
 
+function DetailCell({ label, value }) {
+  return (
+    <div>
+      <div style={{ color: colors.textMuted, fontWeight: 600, marginBottom: 2, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>{label}</div>
+      <div style={{ color: colors.text }}>{value}</div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Variation form (inside modal)
+// Variation form (inside modal) — matches Mastt's Add Variation layout
 // ---------------------------------------------------------------------------
 
 function VariationForm({ data, contracts, budgetLines, onField }) {
   const [activeTab, setActiveTab] = useState('lineItems');
 
-  // When the contract changes, auto-pick the first milestone's budget line
   const onContractChange = (id) => {
     onField('contract_id', id);
     const c = contracts.find((x) => x.id === id);
@@ -404,9 +408,9 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
   const rejected = !!data.date_rejected;
 
   const tabStyle = (tab) => ({
-    padding: '8px 16px',
+    padding: '10px 18px',
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 500,
     cursor: 'pointer',
     background: 'transparent',
     border: 'none',
@@ -414,16 +418,35 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
     borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent',
   });
 
+  const smallTh = {
+    ...tableStyles.th,
+    fontSize: 11,
+    padding: '8px 10px',
+    fontWeight: 600,
+  };
+
+  const smallTd = {
+    ...tableStyles.td,
+    padding: '6px 10px',
+    fontSize: 12,
+  };
+
+  const smallInput = {
+    ...input,
+    padding: '5px 8px',
+    fontSize: 12,
+  };
+
   return (
-    <div style={{ display: 'grid', gap: 0 }}>
-      {/* Row 1 — Title, Contract, Category, Contract Var No. */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 1fr', gap: 14, marginBottom: 18 }}>
+    <div>
+      {/* Row 1 — Title, Varying Contract, Variation Category, Contract Variation Number */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 1fr', gap: 14, marginBottom: 16 }}>
         <Field label="Title">
           <input
             style={input}
             value={data.title}
             onChange={(e) => onField('title', e.target.value)}
-            placeholder="Variation title"
+            placeholder=""
             required
           />
         </Field>
@@ -434,7 +457,7 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
             onChange={(e) => onContractChange(e.target.value)}
             required
           >
-            <option value="">— Select contract —</option>
+            <option value="">— Select —</option>
             {contracts.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.reference ? `${c.reference} — ` : ''}{c.title}
@@ -448,13 +471,13 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
             value={data.category}
             onChange={(e) => onField('category', e.target.value)}
           >
-            <option value="">— None —</option>
+            <option value="">—</option>
             {CATEGORIES.filter(Boolean).map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </Field>
-        <Field label="Contract Var. Number">
+        <Field label="Contract Variation Number">
           <input
             style={input}
             type="number"
@@ -466,7 +489,7 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
       </div>
 
       {/* Row 2 — Status */}
-      <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 14, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 14, marginBottom: 20 }}>
         <Field label="Status">
           <select style={input} value={data.status} onChange={(e) => onField('status', e.target.value)}>
             {STATUSES.map((s) => (
@@ -474,7 +497,7 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
             ))}
           </select>
         </Field>
-        <div style={{ alignSelf: 'end', paddingBottom: 4 }}>
+        <div style={{ alignSelf: 'end', paddingBottom: 6 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: colors.textMuted, cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -488,137 +511,194 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — matching Mastt: Line Items, Description, Time Impact, Additional Fields */}
       <div style={{ borderBottom: `1px solid ${colors.border}`, display: 'flex', gap: 0, marginBottom: 16 }}>
-        <button type="button" style={tabStyle('lineItems')} onClick={() => setActiveTab('lineItems')}>Line Items</button>
-        <button type="button" style={tabStyle('description')} onClick={() => setActiveTab('description')}>Description</button>
-        <button type="button" style={tabStyle('timeImpact')} onClick={() => setActiveTab('timeImpact')}>Time Impact</button>
-        <button type="button" style={tabStyle('additional')} onClick={() => setActiveTab('additional')}>Additional Fields</button>
+        <button type="button" style={tabStyle('lineItems')} onClick={() => setActiveTab('lineItems')}>
+          Line Items
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #2563eb', marginLeft: 6, verticalAlign: 'middle' }} />
+        </button>
+        <button type="button" style={tabStyle('description')} onClick={() => setActiveTab('description')}>
+          Description
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #2563eb', marginLeft: 6, verticalAlign: 'middle' }} />
+        </button>
+        <button type="button" style={tabStyle('timeImpact')} onClick={() => setActiveTab('timeImpact')}>
+          Time Impact
+        </button>
+        <button type="button" style={tabStyle('additional')} onClick={() => setActiveTab('additional')}>
+          Additional Fields
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #2563eb', marginLeft: 6, verticalAlign: 'middle' }} />
+        </button>
       </div>
 
-      {/* Tab content: Line Items */}
+      {/* ── Line Items tab ── */}
       {activeTab === 'lineItems' && (
         <div>
-          <table style={{ ...tableStyles.table, fontSize: 12, marginBottom: 12 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableStyles.th, fontSize: 11, padding: '8px 10px' }}>Name</th>
-                <th style={{ ...tableStyles.th, ...tableStyles.numeric, fontSize: 11, padding: '8px 10px' }}>Requested Amount</th>
-                <th style={{ ...tableStyles.th, ...tableStyles.numeric, fontSize: 11, padding: '8px 10px' }}>Variation Amount</th>
-                <th style={{ ...tableStyles.th, fontSize: 11, padding: '8px 10px' }}>Contract Line Item</th>
-                <th style={{ ...tableStyles.th, fontSize: 11, padding: '8px 10px' }}>Budget</th>
-                <th style={{ ...tableStyles.th, ...tableStyles.numeric, fontSize: 11, padding: '8px 10px', width: 70 }}>Tax %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Summary row */}
-              <tr style={{ background: '#f5f6f8' }}>
-                <td style={{ ...tableStyles.td, padding: '8px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#7c3aed', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>V</span>
-                    <span style={{ fontWeight: 600 }}>Variations</span>
-                  </div>
-                </td>
-                <td style={{ ...tableStyles.td, ...tableStyles.numeric, padding: '8px 10px', fontWeight: 600 }}>
-                  {formatMoney(Number(data.requested_amount) || 0)}
-                </td>
-                <td style={{ ...tableStyles.td, ...tableStyles.numeric, padding: '8px 10px', fontWeight: 600 }}>
-                  {formatMoney(Number(data.variation_amount) || 0)}
-                </td>
-                <td style={{ ...tableStyles.td, padding: '8px 10px' }}></td>
-                <td style={{ ...tableStyles.td, padding: '8px 10px' }}></td>
-                <td style={{ ...tableStyles.td, ...tableStyles.numeric, padding: '8px 10px' }}></td>
-              </tr>
-              {/* Editable line item row */}
-              <tr>
-                <td style={{ ...tableStyles.td, padding: '6px 10px' }}>
-                  <input
-                    style={{ ...input, padding: '4px 8px', fontSize: 12 }}
-                    value={data.reference}
-                    onChange={(e) => onField('reference', e.target.value)}
-                    placeholder="Enter name..."
-                  />
-                </td>
-                <td style={{ ...tableStyles.td, padding: '6px 10px' }}>
-                  <input
-                    style={{ ...input, padding: '4px 8px', fontSize: 12, textAlign: 'right' }}
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={data.requested_amount}
-                    onChange={(e) => onField('requested_amount', e.target.value)}
-                  />
-                </td>
-                <td style={{ ...tableStyles.td, padding: '6px 10px' }}>
-                  <input
-                    style={{ ...input, padding: '4px 8px', fontSize: 12, textAlign: 'right' }}
-                    type="number"
-                    step="100"
-                    value={data.variation_amount}
-                    onChange={(e) => onField('variation_amount', e.target.value)}
-                    required
-                  />
-                </td>
-                <td style={{ ...tableStyles.td, padding: '6px 10px' }}>
-                  <select
-                    style={{ ...input, padding: '4px 8px', fontSize: 12 }}
-                    value={data.budget_line_id}
-                    onChange={(e) => onField('budget_line_id', e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {budgetLines.map((b) => (
-                      <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.title}</option>
-                    ))}
-                  </select>
-                </td>
-                <td style={{ ...tableStyles.td, padding: '6px 10px', fontSize: 11, color: colors.textMuted }}>
-                  {(() => {
-                    const b = budgetLines.find((x) => x.id === data.budget_line_id);
-                    return b ? (b.code ? `${b.code} — ${b.title}` : b.title) : '—';
-                  })()}
-                </td>
-                <td style={{ ...tableStyles.td, padding: '6px 10px' }}>
-                  <input
-                    style={{ ...input, padding: '4px 8px', fontSize: 12, textAlign: 'right', width: 60 }}
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={data.tax_percent}
-                    onChange={(e) => onField('tax_percent', e.target.value)}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div style={{ ...tableStyles.wrapper, marginBottom: 12 }}>
+            <table style={{ ...tableStyles.table, fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th style={smallTh}>Name</th>
+                  <th style={{ ...smallTh, ...tableStyles.numeric }}>Requested Amount ⓘ</th>
+                  <th style={{ ...smallTh, ...tableStyles.numeric }}>Variation Amount</th>
+                  <th style={smallTh}>Contract Line Item</th>
+                  <th style={smallTh}>Budget</th>
+                  <th style={{ ...smallTh, ...tableStyles.numeric, width: 70 }}>Tax %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Summary row */}
+                <tr style={{ background: '#f5f6f8' }}>
+                  <td style={{ ...smallTd, padding: '8px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: '#7c3aed',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}>V</span>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>Variations</span>
+                    </div>
+                  </td>
+                  <td style={{ ...smallTd, ...tableStyles.numeric, padding: '8px 10px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    {(Number(data.requested_amount) || 0).toFixed(2)}
+                  </td>
+                  <td style={{ ...smallTd, ...tableStyles.numeric, padding: '8px 10px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    {(Number(data.variation_amount) || 0).toFixed(2)}
+                  </td>
+                  <td style={{ ...smallTd, padding: '8px 10px' }}></td>
+                  <td style={{ ...smallTd, padding: '8px 10px' }}></td>
+                  <td style={{ ...smallTd, ...tableStyles.numeric, padding: '8px 10px' }}></td>
+                </tr>
+                {/* Editable row */}
+                <tr>
+                  <td style={smallTd}>
+                    <input
+                      style={smallInput}
+                      value={data.reference}
+                      onChange={(e) => onField('reference', e.target.value)}
+                      placeholder="Enter name..."
+                    />
+                  </td>
+                  <td style={smallTd}>
+                    <input
+                      style={{ ...smallInput, textAlign: 'right' }}
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={data.requested_amount}
+                      onChange={(e) => onField('requested_amount', e.target.value)}
+                    />
+                  </td>
+                  <td style={smallTd}>
+                    <input
+                      style={{ ...smallInput, textAlign: 'right' }}
+                      type="number"
+                      step="100"
+                      value={data.variation_amount}
+                      onChange={(e) => onField('variation_amount', e.target.value)}
+                      required
+                    />
+                  </td>
+                  <td style={smallTd}>
+                    <select
+                      style={smallInput}
+                      value={data.budget_line_id}
+                      onChange={(e) => onField('budget_line_id', e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {budgetLines.map((b) => (
+                        <option key={b.id} value={b.id}>{b.code ? `${b.code} — ` : ''}{b.title}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={{ ...smallTd, fontSize: 11, color: colors.textMuted }}>
+                    {(() => {
+                      const b = budgetLines.find((x) => x.id === data.budget_line_id);
+                      return b ? (b.code ? `${b.code} — ${b.title}` : b.title) : '';
+                    })()}
+                  </td>
+                  <td style={smallTd}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <input
+                        style={{ ...smallInput, textAlign: 'right', width: 50 }}
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={data.tax_percent}
+                        onChange={(e) => onField('tax_percent', e.target.value)}
+                      />
+                      <span style={{ fontSize: 12, color: colors.textMuted }}>%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button
+            type="button"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#2563eb',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'default',
+              opacity: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+            }}>+</span>
+            Add Line Item
+          </button>
         </div>
       )}
 
-      {/* Tab content: Description */}
+      {/* ── Description tab ── */}
       {activeTab === 'description' && (
         <div>
           <Field label="Description">
             <textarea
-              style={{ ...input, minHeight: 120, resize: 'vertical' }}
+              style={{ ...input, minHeight: 120, resize: 'vertical', fontFamily: 'inherit' }}
               value={data.description}
               onChange={(e) => onField('description', e.target.value)}
-              placeholder="Describe the variation scope, reason, and impact…"
+              placeholder="Describe the variation scope, reason, and impact..."
             />
           </Field>
           <div style={{ marginTop: 14 }}>
             <Field label="Notes">
               <textarea
-                style={{ ...input, minHeight: 80, resize: 'vertical' }}
+                style={{ ...input, minHeight: 80, resize: 'vertical', fontFamily: 'inherit' }}
                 value={data.notes}
                 onChange={(e) => onField('notes', e.target.value)}
-                placeholder="Internal notes…"
+                placeholder="Internal notes..."
               />
             </Field>
           </div>
         </div>
       )}
 
-      {/* Tab content: Time Impact */}
+      {/* ── Time Impact tab ── */}
       {activeTab === 'timeImpact' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <Field label="Days Claimed">
@@ -642,7 +722,7 @@ function VariationForm({ data, contracts, budgetLines, onField }) {
         </div>
       )}
 
-      {/* Tab content: Additional Fields */}
+      {/* ── Additional Fields tab ── */}
       {activeTab === 'additional' && (
         <div style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
