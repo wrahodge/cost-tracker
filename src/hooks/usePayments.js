@@ -39,7 +39,14 @@ export function useSavePayment(projectId) {
         period_from: payload.period_from || null,
         period_to: payload.period_to || null,
         month: payload.month ?? null,
+        month_paid: payload.month_paid ?? null,
         date: payload.date || null,
+        date_received: payload.date_received || null,
+        date_approved: payload.date_approved || null,
+        date_payment_due: payload.date_payment_due || null,
+        payment_reference: payload.payment_reference ?? null,
+        invoice: payload.invoice ?? null,
+        notes: payload.notes ?? null,
       };
 
       if (payload.id) {
