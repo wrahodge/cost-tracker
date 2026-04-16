@@ -28,5 +28,7 @@ export const qk = {
   milestones: (projectId) => ['milestones', projectId],
   variations: (projectId) => ['variations', projectId],
   payments: (projectId) => ['payments', projectId],
+  paymentLineItems: (paymentId) => ['paymentLineItems', paymentId],
+  paymentVariationItems: (paymentId) => ['paymentVariationItems', paymentId],
   forecasts: (projectId) => ['forecasts', projectId],
 };
