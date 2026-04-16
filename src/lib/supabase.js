@@ -3,9 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug: log what the build baked in so we can diagnose env var issues.
+// Remove this block once auth is confirmed working.
+// eslint-disable-next-line no-console
+console.log('[supabase] config →', {
+  url: url || '(empty)',
+  keyPrefix: anonKey ? anonKey.slice(0, 20) + '…' : '(empty)',
+  email: import.meta.env.VITE_ALLOWED_EMAIL || '(empty)',
+});
+
 if (!url || !anonKey) {
-  // Fail loudly in development so missing env config doesn't silently
-  // fall through to a broken "forever loading" state.
   // eslint-disable-next-line no-console
   console.warn(
     '[supabase] VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY are not set. ' +
