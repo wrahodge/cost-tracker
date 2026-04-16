@@ -149,7 +149,7 @@ export default function VariationsTab({ project, contracts, budgetLines, variati
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button style={{ ...btn.primary, background: '#2563eb' }} onClick={openNew}>
+          <button style={btn.primary} onClick={openNew}>
             + Add Variation
           </button>
           <button style={btn.secondary} onClick={exportCSV}>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { colors } from '../styles.js';
 
-const TABS = ['Dashboard', 'Budget', 'Contracts', 'Variations', 'Payments', 'Forecasts', 'Overall', 'Cost Report'];
+const TABS = ['Overall', 'Budget', 'Contracts', 'Variations', 'Forecasts', 'Payments', 'Dashboard', 'Cost Report'];
 
 export default function Tabs({ active, onChange }) {
   return (
@@ -17,7 +17,7 @@ export default function Tabs({ active, onChange }) {
           margin: '0 auto',
           padding: '0 32px',
           display: 'flex',
-          gap: 4,
+          gap: 0,
         }}
       >
         {TABS.map((t) => {
@@ -29,16 +29,19 @@ export default function Tabs({ active, onChange }) {
               style={{
                 background: 'none',
                 border: 'none',
-                padding: '16px 18px 14px',
+                padding: '14px 20px 12px',
                 fontSize: 14,
-                fontWeight: 600,
+                fontWeight: 500,
                 color: isActive ? colors.text : colors.textMuted,
                 cursor: 'pointer',
-                borderBottom: `3px solid ${isActive ? colors.gold : 'transparent'}`,
+                borderBottom: `3px solid ${isActive ? colors.blue : 'transparent'}`,
                 marginBottom: -1,
+                transition: 'color 0.15s',
               }}
             >
-              {t}
+              {t === 'Budget' ? (
+                <span>Budgets <span style={{ fontSize: 10, verticalAlign: 'middle' }}>▼</span></span>
+              ) : t}
             </button>
           );
         })}

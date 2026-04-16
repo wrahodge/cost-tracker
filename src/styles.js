@@ -1,6 +1,3 @@
-// Shared inline style objects. Intentionally small — colour palette first,
-// then component-level snippets that get imported by multiple tabs.
-
 export const colors = {
   headerBg: '#1a1d23',
   headerText: '#f5f6f8',
@@ -16,6 +13,7 @@ export const colors = {
   positive: '#1f8a5c',
   pending: '#b08500',
   accentRow: '#fafbfc',
+  blue: '#2563eb',
 };
 
 export const page = {
@@ -78,8 +76,8 @@ export const tableStyles = {
 
 export const btn = {
   primary: {
-    background: colors.headerBg,
-    color: colors.headerText,
+    background: colors.blue,
+    color: '#fff',
     border: 'none',
     borderRadius: 6,
     padding: '9px 16px',

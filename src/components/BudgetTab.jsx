@@ -11,7 +11,8 @@ import {
   budgetLineVariance,
 } from '../utils/calc.js';
 import Modal from './Modal.jsx';
-import { Field, TabToolbar } from './FormShared.jsx';
+import { Field } from './FormShared.jsx';
+import DropdownMenu from './DropdownMenu.jsx';
 
 const emptyLine = {
   code: '',
@@ -36,7 +37,15 @@ export default function BudgetTab({
   const toggle = (id) =>
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
-  // Build the tree: category → group → line
+  const expandAll = () => setCollapsed({});
+  const collapseAll = () => {
+    const all = {};
+    (budgetCategories || []).forEach((c) => { all[c.id] = true; });
+    (budgetGroups || []).forEach((g) => { all[g.id] = true; });
+    setCollapsed(all);
+  };
+  const anyCollapsed = Object.values(collapsed).some(Boolean);
+
   const tree = useMemo(() => {
     return (budgetCategories || [])
       .slice()
@@ -82,7 +91,6 @@ export default function BudgetTab({
   const onField = (field, value) =>
     setEditing((e) => ({ ...e, data: { ...e.data, [field]: value } }));
 
-  // Subtotals for a group
   const groupSubtotals = (lines) => {
     let budget = 0, committed = 0, approved = 0, uncommitted = 0, ffc = 0, variance = 0;
     for (const line of lines) {
@@ -96,7 +104,6 @@ export default function BudgetTab({
     return { budget, committed, approved, uncommitted, ffc, variance };
   };
 
-  // Subtotals for a category
   const categorySubtotals = (groups) => {
     let budget = 0, committed = 0, approved = 0, uncommitted = 0, ffc = 0, variance = 0;
     for (const grp of groups) {
@@ -111,9 +118,50 @@ export default function BudgetTab({
     return { budget, committed, approved, uncommitted, ffc, variance };
   };
 
+  const exportCSV = () => {
+    const header = ['Code', 'Description', 'Budget', 'Committed', 'Approved Vars', 'FFC', 'Variance'];
+    const rows = budgetLines.map((line) => [
+      line.code || '',
+      line.title,
+      budgetLineEffectiveBudget(line).toFixed(2),
+      budgetCommitted(line, contracts).toFixed(2),
+      budgetApprovedVars(line, variations).toFixed(2),
+      budgetLineFFC(line, contracts, variations, forecasts || []).toFixed(2),
+      budgetLineVariance(line, contracts, variations, forecasts || []).toFixed(2),
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'budget.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const totalLines = budgetLines.length;
+
   return (
     <div>
-      <TabToolbar title="Budget" onAdd={openNew} />
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button style={btn.primary} onClick={openNew}>
+            + Add Budget Line
+          </button>
+          <button style={btn.secondary} onClick={exportCSV}>
+            ↓ Export
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            style={{ ...btn.secondary, fontSize: 13, padding: '7px 14px' }}
+            onClick={anyCollapsed ? expandAll : collapseAll}
+          >
+            ↕ {anyCollapsed ? 'Expand All' : 'Collapse All'}
+          </button>
+        </div>
+      </div>
 
       <div style={tableStyles.wrapper}>
         <table style={tableStyles.table}>
@@ -127,7 +175,7 @@ export default function BudgetTab({
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Approved Vars</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>FFC</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Variance</th>
-              <th style={{ ...tableStyles.th, width: 40 }}></th>
+              <th style={{ ...tableStyles.th, width: 44 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -136,7 +184,6 @@ export default function BudgetTab({
               const catSub = categorySubtotals(cat.groups);
               return (
                 <React.Fragment key={cat.id}>
-                  {/* Category row */}
                   <tr
                     style={{ background: '#eef0f3', cursor: 'pointer' }}
                     onClick={() => toggle(cat.id)}
@@ -167,7 +214,6 @@ export default function BudgetTab({
                       const grpSub = groupSubtotals(grp.lines);
                       return (
                         <React.Fragment key={grp.id}>
-                          {/* Group row */}
                           <tr
                             style={{ background: '#f5f6f8', cursor: 'pointer' }}
                             onClick={() => toggle(grp.id)}
@@ -195,14 +241,11 @@ export default function BudgetTab({
                               const effective = budgetLineEffectiveBudget(line);
                               const committed = budgetCommitted(line, contracts);
                               const approved = budgetApprovedVars(line, variations);
-                              const uncommitted = budgetUncommitted(line, contracts);
                               const ffc = budgetLineFFC(line, contracts, variations, forecasts || []);
                               const vari = budgetLineVariance(line, contracts, variations, forecasts || []);
                               return (
                                 <tr
                                   key={line.id}
-                                  style={{ ...tableStyles.tr, cursor: 'pointer' }}
-                                  onClick={() => openEdit(line)}
                                   onMouseEnter={(e) =>
                                     (e.currentTarget.style.background = colors.accentRow)
                                   }
@@ -214,7 +257,9 @@ export default function BudgetTab({
                                   <td style={{ ...tableStyles.td, paddingLeft: 56, color: colors.textMuted, fontSize: 13 }}>
                                     {line.code || '—'}
                                   </td>
-                                  <td style={tableStyles.td}>{line.title}</td>
+                                  <td style={{ ...tableStyles.td, cursor: 'pointer' }} onClick={() => openEdit(line)}>
+                                    {line.title}
+                                  </td>
                                   <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>
                                     {formatMoney(effective)}
                                   </td>
@@ -237,19 +282,21 @@ export default function BudgetTab({
                                   >
                                     {formatMoney(vari)}
                                   </td>
-                                  <td style={{ ...tableStyles.td, width: 40, textAlign: 'right' }}>
-                                    <button
-                                      style={btn.danger}
-                                      title="Delete"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm(`Delete budget line "${line.title}"?`)) {
-                                          onDelete(line.id);
-                                        }
-                                      }}
-                                    >
-                                      ×
-                                    </button>
+                                  <td style={{ ...tableStyles.td, width: 44, textAlign: 'right' }}>
+                                    <DropdownMenu
+                                      items={[
+                                        { icon: '✏️', label: 'Edit Budget Line', accent: true, onClick: () => openEdit(line) },
+                                        {
+                                          icon: '🗑️',
+                                          label: 'Delete Budget Line',
+                                          danger: true,
+                                          onClick: () => {
+                                            if (window.confirm(`Delete budget line "${line.title}"?`))
+                                              onDelete(line.id);
+                                          },
+                                        },
+                                      ]}
+                                    />
                                   </td>
                                 </tr>
                               );
@@ -264,11 +311,16 @@ export default function BudgetTab({
         </table>
       </div>
 
+      <div style={{ textAlign: 'right', fontSize: 13, color: colors.textMuted, marginTop: 8, paddingRight: 4 }}>
+        Total Rows: {totalLines}
+      </div>
+
       {editing && (
         <Modal
-          title={editing.mode === 'new' ? 'New Budget Line' : 'Edit Budget Line'}
+          title={editing.mode === 'new' ? 'Add Budget Line' : 'Edit Budget Line'}
           onClose={close}
           onSubmit={save}
+          submitLabel={editing.mode === 'new' ? 'Add' : 'Save'}
         >
           <div style={{ display: 'grid', gap: 14 }}>
             <Field label="Cost Code">
@@ -325,7 +377,7 @@ function Chevron({ open }) {
     <span
       style={{
         display: 'inline-block',
-        fontSize: 11,
+        fontSize: 9,
         color: colors.textMuted,
         transition: 'transform 0.15s',
         transform: open ? 'rotate(90deg)' : 'rotate(0deg)',

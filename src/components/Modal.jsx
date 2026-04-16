@@ -61,7 +61,7 @@ export default function Modal({ title, onClose, onSubmit, submitLabel = 'Save', 
               lineHeight: 1,
             }}
           >
-            ×
+            ✕
           </button>
         </div>
         <form
