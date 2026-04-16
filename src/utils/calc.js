@@ -125,9 +125,37 @@ export function paymentNetPayable(payment, contract) {
   return (Number(payment.certified_amount) || 0) - paymentRetention(payment, contract);
 }
 
+// --- Forecast helpers ---------------------------------------------------
+
+export function forecastsForBudgetLine(line, forecasts) {
+  return forecasts.filter((f) => f.budget_line_id === line.id);
+}
+
+export function budgetForecastTotal(line, forecasts) {
+  return sum(forecastsForBudgetLine(line, forecasts).map((f) => f.amount));
+}
+
+// FFC (Forecast Final Cost) per budget line — Mastt's most important
+// reporting number:
+//   current_contract + MAX(0, uncommitted) + forecasts
+// where current_contract = committed + approved variations
+export function budgetLineFFC(line, contracts, variations, forecasts) {
+  const committed = budgetCommitted(line, contracts);
+  const approved = budgetApprovedVars(line, variations);
+  const currentContract = committed + approved;
+  const uncommitted = Math.max(0, budgetUncommitted(line, contracts));
+  const forecastTotal = budgetForecastTotal(line, forecasts);
+  return currentContract + uncommitted + forecastTotal;
+}
+
+// Variance = Budget − FFC. Negative means over budget.
+export function budgetLineVariance(line, contracts, variations, forecasts) {
+  return budgetLineEffectiveBudget(line) - budgetLineFFC(line, contracts, variations, forecasts);
+}
+
 // --- Project totals (dashboard cards) -----------------------------------
 
-export function projectTotals({ budgetLines, contracts, variations, payments }) {
+export function projectTotals({ budgetLines, contracts, variations, payments, forecasts = [] }) {
   const totalBudget = sum(budgetLines.map((b) => budgetLineEffectiveBudget(b)));
 
   const committed = sum(
@@ -146,5 +174,14 @@ export function projectTotals({ budgetLines, contracts, variations, payments }) 
   );
 
   const uncommitted = totalBudget - committed;
-  return { totalBudget, committed, approvedVars, certified, paid, uncommitted };
+
+  const forecastTotal = sum(forecasts.map((f) => f.amount));
+  const currentContract = committed + approvedVars;
+  const ffc = currentContract + Math.max(0, uncommitted) + forecastTotal;
+  const variance = totalBudget - ffc;
+
+  return {
+    totalBudget, committed, approvedVars, certified, paid, uncommitted,
+    forecastTotal, ffc, variance,
+  };
 }

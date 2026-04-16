@@ -2,9 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase.js';
 import { qk } from '../lib/queryClient.js';
 
-// Returns contracts with nested sections and milestones. Milestones
-// include their budget_line_id so the UI can derive contract sums and
-// show budget-line names without a second query.
 export function useContracts(projectId) {
   return useQuery({
     enabled: !!projectId,
@@ -25,9 +22,10 @@ export function useContracts(projectId) {
   });
 }
 
-// Sprint 1 shim: one section + one milestone per contract. Sprint 2
-// replaces this with a richer editor that supports multi-section /
-// multi-milestone contracts.
+// Sprint 2: supports multiple milestones per contract.
+// payload.milestones is an array of { id?, title, budget_line_id, original_value }.
+// Existing milestones (with id) are updated; new ones (without id) are inserted;
+// milestones removed from the array are deleted.
 export function useSaveContract(projectId) {
   const qc = useQueryClient();
   return useMutation({
@@ -41,9 +39,7 @@ export function useSaveContract(projectId) {
         retention_pct,
         contract_standard,
         date_approved,
-        // Shim: single-milestone fields
-        budget_line_id,
-        original_value,
+        milestones = [],
       } = payload;
 
       const contractFields = {
@@ -60,12 +56,14 @@ export function useSaveContract(projectId) {
       let contractId = id;
 
       if (id) {
+        // Update existing contract
         const { error } = await supabase
           .from('contracts')
           .update(contractFields)
           .eq('id', id);
         if (error) throw error;
       } else {
+        // Insert new contract
         const { data: created, error } = await supabase
           .from('contracts')
           .insert(contractFields)
@@ -74,7 +72,7 @@ export function useSaveContract(projectId) {
         if (error) throw error;
         contractId = created.id;
 
-        // Auto-create the single "Main" section + milestone.
+        // Create a default "Main" section for new contracts
         const { data: section, error: secErr } = await supabase
           .from('contract_sections')
           .insert({ contract_id: contractId, title: 'Main', sort_order: 1 })
@@ -82,46 +80,88 @@ export function useSaveContract(projectId) {
           .single();
         if (secErr) throw secErr;
 
-        const { error: mErr } = await supabase.from('contract_milestones').insert({
-          contract_id: contractId,
-          section_id: section.id,
-          budget_line_id,
-          title: 'Main',
-          original_value: Number(original_value) || 0,
-          status: 'Approved',
-          sort_order: 1,
-        });
-        if (mErr) throw mErr;
+        // Insert all milestones under the default section
+        if (milestones.length > 0) {
+          const rows = milestones.map((m, i) => ({
+            contract_id: contractId,
+            section_id: section.id,
+            budget_line_id: m.budget_line_id,
+            title: m.title || 'Milestone',
+            original_value: Number(m.original_value) || 0,
+            status: 'Approved',
+            sort_order: i + 1,
+          }));
+          const { error: mErr } = await supabase
+            .from('contract_milestones')
+            .insert(rows);
+          if (mErr) throw mErr;
+        }
 
         return contractId;
       }
 
-      // For updates we may also need to sync the shim milestone
-      // (edit original sum / budget line). Find the first milestone
-      // and update it.
-      const { data: milestones, error: mFetchErr } = await supabase
+      // --- Sync milestones for existing contracts ---
+
+      // Fetch current milestones from DB
+      const { data: existing, error: fetchErr } = await supabase
         .from('contract_milestones')
+        .select('id')
+        .eq('contract_id', contractId);
+      if (fetchErr) throw fetchErr;
+
+      const existingIds = new Set((existing || []).map((m) => m.id));
+      const payloadIds = new Set(milestones.filter((m) => m.id).map((m) => m.id));
+
+      // Delete removed milestones
+      const toDelete = [...existingIds].filter((id) => !payloadIds.has(id));
+      if (toDelete.length > 0) {
+        const { error: delErr } = await supabase
+          .from('contract_milestones')
+          .delete()
+          .in('id', toDelete);
+        if (delErr) throw delErr;
+      }
+
+      // Fetch default section for inserts
+      const { data: sections } = await supabase
+        .from('contract_sections')
         .select('id')
         .eq('contract_id', contractId)
         .order('sort_order')
         .limit(1);
-      if (mFetchErr) throw mFetchErr;
+      const defaultSectionId = sections?.[0]?.id || null;
 
-      if (milestones && milestones.length > 0) {
-        const { error: mUpdErr } = await supabase
-          .from('contract_milestones')
-          .update({
-            budget_line_id,
-            original_value: Number(original_value) || 0,
-          })
-          .eq('id', milestones[0].id);
-        if (mUpdErr) throw mUpdErr;
+      // Upsert milestones
+      for (let i = 0; i < milestones.length; i++) {
+        const m = milestones[i];
+        const fields = {
+          contract_id: contractId,
+          section_id: m.section_id || defaultSectionId,
+          budget_line_id: m.budget_line_id,
+          title: m.title || 'Milestone',
+          original_value: Number(m.original_value) || 0,
+          sort_order: i + 1,
+        };
+
+        if (m.id && existingIds.has(m.id)) {
+          const { error: updErr } = await supabase
+            .from('contract_milestones')
+            .update(fields)
+            .eq('id', m.id);
+          if (updErr) throw updErr;
+        } else {
+          const { error: insErr } = await supabase
+            .from('contract_milestones')
+            .insert({ ...fields, status: 'Approved' });
+          if (insErr) throw insErr;
+        }
       }
 
       return contractId;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.contracts(projectId) });
+      qc.invalidateQueries({ queryKey: qk.budgetLines(projectId) });
     },
   });
 }

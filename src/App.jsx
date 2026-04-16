@@ -6,6 +6,7 @@ import BudgetTab from './components/BudgetTab.jsx';
 import ContractsTab from './components/ContractsTab.jsx';
 import VariationsTab from './components/VariationsTab.jsx';
 import PaymentsTab from './components/PaymentsTab.jsx';
+import ForecastsTab from './components/ForecastsTab.jsx';
 import { colors, page } from './styles.js';
 import { useActiveProject } from './hooks/useProjects.js';
 import {
@@ -30,6 +31,11 @@ import {
   useSavePayment,
   useDeletePayment,
 } from './hooks/usePayments.js';
+import {
+  useForecasts,
+  useSaveForecast,
+  useDeleteForecast,
+} from './hooks/useForecasts.js';
 import { useAuth } from './auth/useAuth.js';
 
 export default function App() {
@@ -45,6 +51,7 @@ export default function App() {
   const contractsQ = useContracts(projectId);
   const variationsQ = useVariations(projectId);
   const paymentsQ = usePayments(projectId);
+  const forecastsQ = useForecasts(projectId);
 
   const saveBudgetLine = useSaveBudgetLine(projectId);
   const deleteBudgetLine = useDeleteBudgetLine(projectId);
@@ -54,6 +61,8 @@ export default function App() {
   const deleteVariation = useDeleteVariation(projectId);
   const savePayment = useSavePayment(projectId);
   const deletePayment = useDeletePayment(projectId);
+  const saveForecast = useSaveForecast(projectId);
+  const deleteForecast = useDeleteForecast(projectId);
 
   if (loadingProject) {
     return <FullScreenMessage>Loading project…</FullScreenMessage>;
@@ -83,12 +92,14 @@ export default function App() {
   const contracts = contractsQ.data || [];
   const variations = variationsQ.data || [];
   const payments = paymentsQ.data || [];
+  const forecasts = forecastsQ.data || [];
 
   const allLoaded =
     !linesQ.isLoading &&
     !contractsQ.isLoading &&
     !variationsQ.isLoading &&
-    !paymentsQ.isLoading;
+    !paymentsQ.isLoading &&
+    !forecastsQ.isLoading;
 
   return (
     <div>
@@ -105,6 +116,7 @@ export default function App() {
                 contracts={contracts}
                 variations={variations}
                 payments={payments}
+                forecasts={forecasts}
               />
             )}
             {tab === 'Budget' && (
@@ -114,6 +126,7 @@ export default function App() {
                 budgetCategories={budgetCategories}
                 contracts={contracts}
                 variations={variations}
+                forecasts={forecasts}
                 onSave={(line) => saveBudgetLine.mutate(line)}
                 onDelete={(id) => deleteBudgetLine.mutate(id)}
               />
@@ -142,6 +155,14 @@ export default function App() {
                 payments={payments}
                 onSave={(p) => savePayment.mutate(p)}
                 onDelete={(id) => deletePayment.mutate(id)}
+              />
+            )}
+            {tab === 'Forecasts' && (
+              <ForecastsTab
+                budgetLines={budgetLines}
+                forecasts={forecasts}
+                onSave={(f) => saveForecast.mutate(f)}
+                onDelete={(id) => deleteForecast.mutate(id)}
               />
             )}
           </>

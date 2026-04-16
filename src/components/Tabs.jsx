@@ -1,7 +1,7 @@
 import React from 'react';
 import { colors } from '../styles.js';
 
-const TABS = ['Dashboard', 'Budget', 'Contracts', 'Variations', 'Payments'];
+const TABS = ['Dashboard', 'Budget', 'Contracts', 'Variations', 'Payments', 'Forecasts'];
 
 export default function Tabs({ active, onChange }) {
   return (

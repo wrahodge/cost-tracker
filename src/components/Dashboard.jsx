@@ -9,13 +9,19 @@ import {
 } from '../utils/calc.js';
 import BarChart from './BarChart.jsx';
 
-export default function Dashboard({ budgetLines, contracts, variations, payments }) {
-  const totals = projectTotals({ budgetLines, contracts, variations, payments });
+export default function Dashboard({ budgetLines, contracts, variations, payments, forecasts = [] }) {
+  const totals = projectTotals({ budgetLines, contracts, variations, payments, forecasts });
 
   const cards = [
     { label: 'Total Budget', value: totals.totalBudget, tone: 'neutral' },
     { label: 'Committed', value: totals.committed, tone: 'neutral' },
     { label: 'Approved Variations', value: totals.approvedVars, tone: 'neutral' },
+    { label: 'FFC', value: totals.ffc, tone: 'neutral' },
+    {
+      label: 'Variance',
+      value: totals.variance,
+      tone: totals.variance < 0 ? 'negative' : 'positive',
+    },
     { label: 'Certified', value: totals.certified, tone: 'neutral' },
     { label: 'Paid', value: totals.paid, tone: 'neutral' },
     {
@@ -59,7 +65,7 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
+          gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 14,
           marginBottom: 24,
         }}
