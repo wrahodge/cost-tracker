@@ -9,7 +9,9 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 console.log('[supabase] config →', {
   url: url || '(empty)',
   keyPrefix: anonKey ? anonKey.slice(0, 20) + '…' : '(empty)',
+  keyLength: anonKey ? anonKey.length : 0,
   email: import.meta.env.VITE_ALLOWED_EMAIL || '(empty)',
+  allKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
 });
 
 if (!url || !anonKey) {
