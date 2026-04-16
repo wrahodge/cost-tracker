@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { colors, btn } from '../styles.js';
 
-export default function Modal({ title, onClose, onSubmit, submitLabel = 'Save', children }) {
+export default function Modal({ title, onClose, onSubmit, submitLabel = 'Save', wide, children }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose();
@@ -22,7 +22,8 @@ export default function Modal({ title, onClose, onSubmit, submitLabel = 'Save', 
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '80px 16px 24px',
+        padding: wide ? '40px 16px 24px' : '80px 16px 24px',
+        overflowY: 'auto',
         zIndex: 50,
       }}
     >
@@ -31,7 +32,7 @@ export default function Modal({ title, onClose, onSubmit, submitLabel = 'Save', 
         style={{
           background: '#fff',
           width: '100%',
-          maxWidth: 540,
+          maxWidth: wide ? 1100 : 540,
           borderRadius: 10,
           border: `1px solid ${colors.border}`,
           boxShadow: '0 20px 40px rgba(10, 12, 18, 0.18)',
