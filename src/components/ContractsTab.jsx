@@ -14,8 +14,6 @@ import DropdownMenu from './DropdownMenu.jsx';
 const CONTRACT_STATUSES = ['Approved', 'Pending', 'Part-Approved'];
 const MILESTONE_STATUSES = ['Approved', 'Pending'];
 
-// --- Contract list view -------------------------------------------------
-
 export default function ContractsTab({
   budgetLines,
   contracts,
@@ -79,7 +77,6 @@ export default function ContractsTab({
             status: m.status || 'Approved',
           })),
       }));
-    // Put unsectioned milestones in a default section
     const sectionedIds = new Set(sections.flatMap((s) => s.milestones.map((m) => m.id)));
     const unsectioned = (c.contract_milestones || []).filter((m) => !sectionedIds.has(m.id));
     if (sections.length === 0 || unsectioned.length > 0) {
@@ -182,19 +179,19 @@ export default function ContractsTab({
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button style={{ ...btn.primary, background: '#2563eb' }} onClick={openNew}>
+          <button style={btn.primary} onClick={openNew}>
             + Add Contract
           </button>
           <button style={btn.secondary} onClick={exportCSV}>
             ↓ Export
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button
-            style={{ ...btn.secondary, fontSize: 13, padding: '7px 12px' }}
+            style={{ ...btn.secondary, fontSize: 13, padding: '7px 14px' }}
             onClick={anyExpanded ? collapseAll : expandAll}
           >
-            {anyExpanded ? '↕ Collapse All' : '↕ Expand All'}
+            ↕ {anyExpanded ? 'Collapse All' : 'Expand All'}
           </button>
         </div>
       </div>
@@ -204,15 +201,14 @@ export default function ContractsTab({
         <table style={tableStyles.table}>
           <thead>
             <tr>
-              <th style={{ ...tableStyles.th, width: 36 }}></th>
-              <th style={tableStyles.th}>Title</th>
+              <th style={{ ...tableStyles.th, width: 32, padding: '14px 8px' }}></th>
+              <th style={{ ...tableStyles.th, minWidth: 240 }}>Title</th>
               <th style={tableStyles.th}>Status</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Original Contract Value</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Variation Value</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Total Contract Value</th>
               <th style={tableStyles.th}>Budget</th>
               <th style={tableStyles.th}>Contract Standard</th>
-              <th style={{ ...tableStyles.th, width: 44 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -231,46 +227,61 @@ export default function ContractsTab({
                     onMouseEnter={(e) => (e.currentTarget.style.background = colors.accentRow)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
+                    {/* Chevron */}
                     <td
-                      style={{ ...tableStyles.td, width: 36, cursor: 'pointer' }}
+                      style={{ ...tableStyles.td, width: 32, padding: '14px 8px', cursor: 'pointer' }}
                       onClick={() => toggleExpand(c.id)}
                     >
                       {milestones.length > 0 && (
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            fontSize: 10,
-                            color: colors.textMuted,
-                            transition: 'transform 0.15s',
-                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                          }}
-                        >
-                          ▶
-                        </span>
+                        <span style={{
+                          display: 'inline-block',
+                          fontSize: 9,
+                          color: colors.textMuted,
+                          transition: 'transform 0.15s',
+                          transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                        }}>▶</span>
                       )}
                     </td>
-                    <td style={tableStyles.td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+                    {/* Title — C badge, ... menu, title */}
+                    <td style={{ ...tableStyles.td, minWidth: 240 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          background: colors.blue,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}>C</span>
+                        <DropdownMenu
+                          items={[
+                            { icon: '✏️', label: 'Edit Contract', accent: true, onClick: () => openEdit(c) },
+                            {
+                              icon: '🗑️',
+                              label: 'Delete Contract',
+                              danger: true,
+                              onClick: () => {
+                                if (window.confirm(`Delete contract "${c.title}"? Linked variations and payments will also be removed.`))
+                                  onDelete(c.id);
+                              },
+                            },
+                          ]}
+                        />
                         <span
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: '50%',
-                            background: '#2563eb',
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => openEdit(c)}
                         >
-                          C
+                          {c.title}
                         </span>
-                        {c.title}
                       </div>
                     </td>
+
                     <td style={tableStyles.td}>
                       <span style={badge(badgeToneForStatus(c.status))}>{c.status}</span>
                     </td>
@@ -281,22 +292,6 @@ export default function ContractsTab({
                       {budgetDisplay}
                     </td>
                     <td style={{ ...tableStyles.td, fontSize: 13, color: colors.textMuted }}>{c.contract_standard || '—'}</td>
-                    <td style={{ ...tableStyles.td, width: 44, textAlign: 'right' }}>
-                      <DropdownMenu
-                        items={[
-                          { icon: '✎', label: 'Edit Contract', onClick: () => openEdit(c) },
-                          {
-                            icon: '🗑',
-                            label: 'Delete Contract',
-                            danger: true,
-                            onClick: () => {
-                              if (window.confirm(`Delete contract "${c.title}"? Linked variations and payments will also be removed.`))
-                                onDelete(c.id);
-                            },
-                          },
-                        ]}
-                      />
-                    </td>
                   </tr>
 
                   {/* Expanded milestones */}
@@ -306,9 +301,9 @@ export default function ContractsTab({
                       .sort((a, b) => a.sort_order - b.sort_order)
                       .map((m) => (
                         <tr key={m.id} style={{ background: '#f9fafb' }}>
-                          <td style={tableStyles.td} />
+                          <td style={{ ...tableStyles.td, padding: '14px 8px' }} />
                           <td style={{ ...tableStyles.td, paddingLeft: 56, fontSize: 13, color: colors.textMuted }}>
-                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#2563eb', marginRight: 8, verticalAlign: 'middle' }} />
+                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: colors.blue, marginRight: 8, verticalAlign: 'middle' }} />
                             {m.title}
                           </td>
                           <td style={tableStyles.td}>
@@ -319,7 +314,7 @@ export default function ContractsTab({
                           <td style={{ ...tableStyles.td, ...tableStyles.numeric, fontSize: 13 }}>{formatMoney(m.original_value)}</td>
                           <td colSpan={2} style={tableStyles.td} />
                           <td style={{ ...tableStyles.td, fontSize: 12, color: colors.textMuted }}>{budgetLineLabel(m.budget_line_id)}</td>
-                          <td colSpan={2} style={tableStyles.td} />
+                          <td style={tableStyles.td} />
                         </tr>
                       ))}
                 </React.Fragment>
@@ -346,8 +341,6 @@ export default function ContractsTab({
     </div>
   );
 }
-
-// --- Contract edit modal ------------------------------------------------
 
 function ContractModal({ editing, budgetLines, onClose, onSave }) {
   const [data, setData] = useState(editing.data);
@@ -444,10 +437,10 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
 
   return (
     <Modal
-      title={isNew ? 'Add Contract' : 'Update Contract'}
+      title={isNew ? 'Add Contract' : 'Edit Contract'}
       onClose={onClose}
       onSubmit={handleSubmit}
-      submitLabel={isNew ? 'Create' : 'Update'}
+      submitLabel={isNew ? 'Add' : 'Save'}
       wide
     >
       {/* Top field row */}
@@ -468,7 +461,6 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
         </Field>
       </div>
 
-      {/* Retention + Status row */}
       <div style={{ display: 'grid', gridTemplateColumns: '120px 140px 1fr', gap: 14, marginBottom: 20 }}>
         <Field label="Retention %">
           <input
@@ -489,13 +481,12 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
         <div />
       </div>
 
-      {/* Line Items section */}
+      {/* Line Items */}
       <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#2563eb', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: colors.blue, marginBottom: 12 }}>
           Line Items
         </div>
 
-        {/* Contract Total row */}
         <div
           style={{
             display: 'grid',
@@ -509,7 +500,7 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+            <span style={{ width: 22, height: 22, borderRadius: '50%', background: colors.blue, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
               C
             </span>
             <span style={{ fontWeight: 700, fontSize: 14 }}>Contract Total</span>
@@ -521,12 +512,10 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Sections */}
         {data.sections.map((sec, si) => {
           const secTotal = sec.milestones.reduce((s, m) => s + (Number(m.original_value) || 0), 0);
           return (
             <div key={si} style={{ marginBottom: 16 }}>
-              {/* Section header */}
               {(data.sections.length > 1 || sec.title !== 'Main') && (
                 <div
                   style={{
@@ -544,7 +533,7 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
                     style={{ ...input, fontWeight: 600, background: 'transparent', border: 'none', padding: '4px 0', flex: 1 }}
                     value={sec.title}
                     onChange={(e) => onSectionTitle(si, e.target.value)}
-                    placeholder="Section name (e.g. SP1 - Townhouses)"
+                    placeholder="Section name"
                   />
                   <span style={{ fontSize: 13, fontWeight: 600, color: colors.textMuted, marginRight: 8 }}>
                     {formatMoney(secTotal)}
@@ -553,7 +542,6 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
                     type="button"
                     onClick={() => addMilestone(si)}
                     style={{ ...btn.secondary, padding: '3px 8px', fontSize: 12 }}
-                    title="Add line item to this section"
                   >
                     +
                   </button>
@@ -562,7 +550,6 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
                       type="button"
                       onClick={() => removeSection(si)}
                       style={{ ...btn.danger, fontSize: 14 }}
-                      title="Remove section"
                     >
                       🗑
                     </button>
@@ -570,7 +557,6 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
                 </div>
               )}
 
-              {/* Milestone rows */}
               {sec.milestones.map((m, mi) => (
                 <div
                   key={mi}
@@ -620,7 +606,6 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
                     type="button"
                     onClick={() => removeMilestone(si, mi)}
                     style={{ ...btn.danger, fontSize: 14, visibility: sec.milestones.length > 1 ? 'visible' : 'hidden' }}
-                    title="Remove line item"
                   >
                     🗑
                   </button>
@@ -630,14 +615,13 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
           );
         })}
 
-        {/* Add buttons */}
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           <button
             type="button"
             onClick={() => addMilestone(data.sections.length - 1)}
-            style={{ ...btn.secondary, fontSize: 13, padding: '7px 14px', color: '#2563eb' }}
+            style={{ ...btn.secondary, fontSize: 13, padding: '7px 14px', color: colors.blue }}
           >
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#2563eb', marginRight: 6, verticalAlign: 'middle' }} />
+            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: colors.blue, marginRight: 6, verticalAlign: 'middle' }} />
             Add Line Item
           </button>
           <button
@@ -650,14 +634,13 @@ function ContractModal({ editing, budgetLines, onClose, onSave }) {
         </div>
       </div>
 
-      {/* Notes */}
       <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 16, marginTop: 20 }}>
         <Field label="Notes">
           <textarea
-            style={{ ...input, minHeight: 80, resize: 'vertical' }}
+            style={{ ...input, minHeight: 80, resize: 'vertical', fontFamily: 'inherit' }}
             value={data.notes}
             onChange={(e) => onField('notes', e.target.value)}
-            placeholder="Internal notes…"
+            placeholder="Internal notes..."
           />
         </Field>
       </div>

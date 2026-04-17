@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { colors, btn, tableStyles, input, badge } from '../styles.js';
+import { colors, btn, tableStyles, input } from '../styles.js';
 import { formatMoney } from '../utils/format.js';
 import Modal from './Modal.jsx';
-import { Field, TabToolbar } from './FormShared.jsx';
+import { Field } from './FormShared.jsx';
+import DropdownMenu from './DropdownMenu.jsx';
 
 function emptyForecast(defaults = {}) {
   return {
@@ -54,9 +55,37 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
 
   const total = forecasts.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
 
+  const exportCSV = () => {
+    const header = ['Description', 'Budget Line', 'Amount', 'Notes'];
+    const rows = forecasts.map((f) => [
+      f.title,
+      budgetLineLabel(f.budget_line_id),
+      (Number(f.amount) || 0).toFixed(2),
+      f.notes || '',
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'forecasts.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
-      <TabToolbar title="Forecasts" onAdd={openNew} />
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button style={btn.primary} onClick={openNew}>
+            + Add Forecast
+          </button>
+          <button style={btn.secondary} onClick={exportCSV}>
+            ↓ Export
+          </button>
+        </div>
+      </div>
 
       <div style={tableStyles.wrapper}>
         <table style={tableStyles.table}>
@@ -66,7 +95,7 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
               <th style={tableStyles.th}>Budget Line</th>
               <th style={{ ...tableStyles.th, ...tableStyles.numeric }}>Amount</th>
               <th style={tableStyles.th}>Notes</th>
-              <th style={{ ...tableStyles.th, width: 40 }}></th>
+              <th style={{ ...tableStyles.th, width: 44 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -81,16 +110,13 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
                     padding: '24px 16px',
                   }}
                 >
-                  No forecasts yet. Forecasts are anticipated future costs that haven't been committed
-                  to a contract — they feed FFC (Forecast Final Cost) on the Dashboard and Budget tabs.
+                  No forecasts yet. Forecasts are anticipated future costs that feed FFC on the Dashboard and Budget tabs.
                 </td>
               </tr>
             )}
             {forecasts.map((f) => (
               <tr
                 key={f.id}
-                style={tableStyles.tr}
-                onClick={() => openEdit(f)}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = colors.accentRow)
                 }
@@ -98,11 +124,13 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
                   (e.currentTarget.style.background = 'transparent')
                 }
               >
-                <td style={tableStyles.td}>{f.title}</td>
-                <td style={{ ...tableStyles.td, color: colors.textMuted }}>
+                <td style={{ ...tableStyles.td, cursor: 'pointer' }} onClick={() => openEdit(f)}>
+                  {f.title}
+                </td>
+                <td style={{ ...tableStyles.td, color: colors.textMuted, fontSize: 13 }}>
                   {budgetLineLabel(f.budget_line_id)}
                 </td>
-                <td style={{ ...tableStyles.td, ...tableStyles.numeric }}>
+                <td style={{ ...tableStyles.td, ...tableStyles.numeric, fontWeight: 600 }}>
                   {formatMoney(f.amount)}
                 </td>
                 <td
@@ -119,19 +147,21 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
                 >
                   {f.notes || '—'}
                 </td>
-                <td style={{ ...tableStyles.td, width: 40, textAlign: 'right' }}>
-                  <button
-                    style={btn.danger}
-                    title="Delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm(`Delete forecast "${f.title}"?`)) {
-                        onDelete(f.id);
-                      }
-                    }}
-                  >
-                    ×
-                  </button>
+                <td style={{ ...tableStyles.td, width: 44, textAlign: 'right' }}>
+                  <DropdownMenu
+                    items={[
+                      { icon: '✏️', label: 'Edit Forecast', accent: true, onClick: () => openEdit(f) },
+                      {
+                        icon: '🗑️',
+                        label: 'Delete Forecast',
+                        danger: true,
+                        onClick: () => {
+                          if (window.confirm(`Delete forecast "${f.title}"?`))
+                            onDelete(f.id);
+                        },
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
@@ -166,11 +196,16 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
         </table>
       </div>
 
+      <div style={{ textAlign: 'right', fontSize: 13, color: colors.textMuted, marginTop: 8, paddingRight: 4 }}>
+        Total Rows: {forecasts.length}
+      </div>
+
       {editing && (
         <Modal
-          title={editing.mode === 'new' ? 'New Forecast' : 'Edit Forecast'}
+          title={editing.mode === 'new' ? 'Add Forecast' : 'Edit Forecast'}
           onClose={close}
           onSubmit={save}
+          submitLabel={editing.mode === 'new' ? 'Add' : 'Save'}
         >
           <div style={{ display: 'grid', gap: 14 }}>
             <Field label="Description">
@@ -178,7 +213,7 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
                 style={input}
                 value={editing.data.title}
                 onChange={(e) => onField('title', e.target.value)}
-                placeholder="e.g. Anticipated façade remediation"
+                placeholder="e.g. Anticipated facade remediation"
                 required
               />
             </Field>
@@ -209,10 +244,10 @@ export default function ForecastsTab({ budgetLines, forecasts, onSave, onDelete 
             </Field>
             <Field label="Notes">
               <textarea
-                style={{ ...input, minHeight: 70, resize: 'vertical' }}
+                style={{ ...input, minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }}
                 value={editing.data.notes}
                 onChange={(e) => onField('notes', e.target.value)}
-                placeholder="Context or justification…"
+                placeholder="Context or justification..."
               />
             </Field>
           </div>

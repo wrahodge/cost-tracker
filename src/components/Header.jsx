@@ -7,7 +7,7 @@ export default function Header({ projectName }) {
       style={{
         background: colors.headerBg,
         color: colors.headerText,
-        padding: '18px 32px',
+        padding: '14px 32px',
         borderBottom: '1px solid #000',
       }}
     >
@@ -17,49 +17,31 @@ export default function Header({ projectName }) {
           margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
-          gap: 14,
+          justifyContent: 'space-between',
         }}
       >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 8,
-            background: colors.gold,
-            color: '#1a1d23',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 22,
-            fontWeight: 700,
-            fontFamily: 'DM Sans, sans-serif',
-          }}
-          aria-hidden
-        >
-          $
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 700,
-              letterSpacing: 0.2,
-              lineHeight: 1.1,
-            }}
-          >
-            {projectName}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* Logo mark */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>
+              ess
+            </span>
+            <span style={{
+              fontSize: 24,
+              fontWeight: 800,
+              color: colors.gold,
+              letterSpacing: -0.5,
+            }}>
+              e
+            </span>
+            <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>
+              nce
+            </span>
           </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: '#9ca3af',
-              textTransform: 'uppercase',
-              letterSpacing: 1.2,
-              marginTop: 2,
-            }}
-          >
-            Cost Control
+          <div style={{ width: 1, height: 28, background: '#3a3d44', margin: '0 6px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, color: colors.textSubtle }}>🔍</span>
+            <span style={{ fontSize: 15, fontWeight: 500 }}>{projectName}</span>
           </div>
         </div>
       </div>

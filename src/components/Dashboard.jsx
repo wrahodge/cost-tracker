@@ -13,21 +13,23 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
   const totals = projectTotals({ budgetLines, contracts, variations, payments, forecasts });
 
   const cards = [
-    { label: 'Total Budget', value: totals.totalBudget, tone: 'neutral' },
-    { label: 'Committed', value: totals.committed, tone: 'neutral' },
-    { label: 'Approved Variations', value: totals.approvedVars, tone: 'neutral' },
-    { label: 'FFC', value: totals.ffc, tone: 'neutral' },
+    { label: 'Total Budget', value: totals.totalBudget, tone: 'neutral', icon: '📊' },
+    { label: 'Committed', value: totals.committed, tone: 'neutral', icon: '📋' },
+    { label: 'Approved Variations', value: totals.approvedVars, tone: 'neutral', icon: '📝' },
+    { label: 'FFC', value: totals.ffc, tone: 'neutral', icon: '🎯' },
     {
       label: 'Variance',
       value: totals.variance,
       tone: totals.variance < 0 ? 'negative' : 'positive',
+      icon: '📈',
     },
-    { label: 'Certified', value: totals.certified, tone: 'neutral' },
-    { label: 'Paid', value: totals.paid, tone: 'neutral' },
+    { label: 'Certified', value: totals.certified, tone: 'neutral', icon: '✓' },
+    { label: 'Paid', value: totals.paid, tone: 'neutral', icon: '💰' },
     {
       label: 'Uncommitted',
       value: totals.uncommitted,
       tone: totals.uncommitted < 0 ? 'negative' : 'positive',
+      icon: '🔓',
     },
   ];
 
@@ -40,8 +42,8 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
     return {
       label: b.title,
       values: [
-        { key: 'Budget', value: budgetAmount, color: colors.headerBg },
-        { key: 'Committed', value: committed, color: colors.gold },
+        { key: 'Budget', value: budgetAmount, color: colors.blue },
+        { key: 'Committed', value: committed, color: '#93c5fd' },
       ],
       rightLabel: `${formatMoney(committed)} / ${formatMoney(budgetAmount)}`,
     };
@@ -53,8 +55,8 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
     return {
       label: c.title,
       values: [
-        { key: 'Certified', value: certified, color: colors.gold },
-        { key: 'Revised Sum', value: revised, color: colors.headerBg },
+        { key: 'Certified', value: certified, color: colors.blue },
+        { key: 'Revised Sum', value: revised, color: '#93c5fd' },
       ],
       rightLabel: `${formatMoney(certified)} / ${formatMoney(revised)}`,
     };
@@ -71,7 +73,7 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
         }}
       >
         {cards.map((c) => (
-          <div key={c.label} style={card}>
+          <div key={c.label} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div
               style={{
                 fontSize: 11,
@@ -87,7 +89,6 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
               style={{
                 fontSize: 22,
                 fontWeight: 700,
-                marginTop: 8,
                 color:
                   c.tone === 'negative'
                     ? colors.negative
@@ -115,8 +116,8 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
           <BarChart data={budgetChartData} mode="grouped" />
           <Legend
             items={[
-              { label: 'Original Budget', color: colors.headerBg },
-              { label: 'Committed', color: colors.gold },
+              { label: 'Original Budget', color: colors.blue },
+              { label: 'Committed', color: '#93c5fd' },
             ]}
           />
         </div>
@@ -125,8 +126,8 @@ export default function Dashboard({ budgetLines, contracts, variations, payments
           <BarChart data={contractChartData} mode="grouped" />
           <Legend
             items={[
-              { label: 'Certified', color: colors.gold },
-              { label: 'Revised Sum', color: colors.headerBg },
+              { label: 'Certified', color: colors.blue },
+              { label: 'Revised Sum', color: '#93c5fd' },
             ]}
           />
         </div>
